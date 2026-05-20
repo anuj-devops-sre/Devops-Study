@@ -1,240 +1,187 @@
-# Recommended DevOps Study Repository Structure
+Topic: Linux Basics
 
-```text
-Devops-Study/
-├── linux/
-│   ├── day1-linux-basics.md
-│   ├── day2-filesystem-permissions.md
-│   ├── day3-process-management-logs.md
-│   ├── day4-users-groups.md
-│   ├── day5-ssh-scp.md
-│   ├── day6-package-management-services.md
-│   ├── day7-system-monitoring.md
-│   ├── day8-networking-commands.md
-│   ├── day9-file-processing.md
-│   └── day10-cron-automation.md
-│
-├── networking/
-│   ├── day1-osi-model.md
-│   ├── day2-tcp-ip-dns.md
-│   ├── day3-http-https-loadbalancer.md
-│   ├── day4-cidr-subnet-nat-firewall.md
-│   └── day5-nginx-reverse-proxy.md
-│
-├── git/
-├── docker/
-├── aws/
-├── terraform/
-├── kubernetes/
-├── monitoring/
-├── security/
-└── projects/
-```
+Sabse pehle samjho:
 
----
+1. Linux Kya Hai?
 
-# Detailed Notes Format (Important)
+Linux ek:
 
-All future notes will include:
+Operating System hai
+open-source hai
+server world ka king hai
 
-* What is it?
-* Why do we use it?
-* How does it work?
-* Command meaning
-* Option breakdown
-* Syntax
-* Example output
-* Real-world DevOps usage
-* Production troubleshooting
-* Interview questions
-* Hands-on practice
+Most:
 
-Example format:
+cloud servers
+Kubernetes nodes
+Docker hosts
+DevOps systems
 
-```markdown
-# ps aux
+Linux par run karte hain.
 
-## Meaning
-ps = process status
+2. Linux Kya Karta Hai?
 
-## Purpose
-Shows all running processes.
+Linux:
 
-## Breakdown
-- a = all users processes
-- u = user-oriented format
-- x = background processes
+hardware manage karta hai
+software run karta hai
+memory manage karta hai
+users manage karta hai
+files manage karta hai
+processes run karta hai
 
-## Example
-ps aux
+Simple words:
+Linux computer/server ko control karta hai.
 
-## Output Fields
-USER = process owner
-PID = process ID
-%CPU = CPU usage
-%MEM = memory usage
+3. DevOps Me Linux Kyu Important Hai?
 
-## Real DevOps Usage
-Find nginx process:
-ps aux | grep nginx
+Because DevOps engineers:
 
-## Troubleshooting
-Find high CPU process:
-ps aux --sort=-%cpu | head
+servers manage karte hain
+logs check karte hain
+deployments karte hain
+automation scripts likhte hain
+troubleshooting karte hain
 
-## Important Notes
-Used heavily in production troubleshooting.
-```
+Aur ye sab mostly Linux me hota hai.
 
----
+4. Linux Kaise Kaam Karta Hai?
 
-# DevOps Study Repository Structure
+Basic architecture:
 
-```text
-Devops-Study/
-├── linux/
-│   └── day1-linux-basics.md
-├── networking/
-├── git/
-├── docker/
-├── aws/
-├── terraform/
-├── kubernetes/
-├── monitoring/
-└── projects/
-```
+User
+ ↓
+Shell (Bash)
+ ↓
+Kernel
+ ↓
+Hardware
+Kernel
 
----
+Linux ka brain.
 
-# File: linux/day1-linux-basics.md
+Ye:
 
-````markdown
-# Day 1 - Linux Basics
+CPU
+RAM
+Disk
+Network
 
-# What is Linux?
+manage karta hai.
 
-Linux is an open-source operating system widely used in servers, cloud computing, DevOps, and containers.
+Shell
 
----
-
-# Why Linux is Important in DevOps?
-
-DevOps engineers use Linux for:
-- Server management
-- Automation
-- Monitoring
-- Deployments
-- Troubleshooting
-
-Most cloud servers run on Linux.
-
----
-
-# Linux Architecture
-
-User → Shell → Kernel → Hardware
-
-## Kernel
-The core part of Linux that manages:
-- CPU
-- Memory
-- Processes
-- Devices
-
-## Shell
-Command-line interface used to interact with Linux.
+User aur Linux ke beech command interface.
 
 Example:
-```bash
+
 ls
 pwd
 mkdir
-```
+5. Important Linux Components
+File System
 
----
+Sab kuch file hota hai.
 
-# Basic Linux Commands
+Examples:
 
-## pwd
-Shows current directory.
+/home
+/etc
+/var
+/tmp
+Users
 
-```bash
+Linux multi-user system hai.
+
+Examples:
+
+root
+ubuntu
+anuj
+Processes
+
+Running programs/processes.
+
+Example:
+
+nginx
+docker
+ssh
+6. First Basic Commands
 pwd
-```
 
----
+Present working directory.
 
-## ls
-Lists files and folders.
+pwd
 
-```bash
+Example output:
+
+/home/ubuntu
 ls
+
+Files/folders dikhata hai.
+
+ls
+
+Detailed:
+
 ls -l
+
+Hidden files:
+
 ls -a
-```
+cd
 
----
+Directory change.
 
-## cd
-Changes directory.
-
-```bash
 cd /home
+
+Back:
+
 cd ..
+
+Home:
+
 cd ~
-```
+mkdir
 
----
+Folder create.
 
-## mkdir
-Creates folder.
-
-```bash
 mkdir devops
-```
+touch
 
----
+File create.
 
-## touch
-Creates file.
-
-```bash
 touch notes.txt
-```
+rm
 
----
+Delete file.
 
-## rm
-Deletes files/folders.
-
-```bash
 rm notes.txt
+
+Delete folder:
+
 rm -r devops
-```
+cp
 
----
+Copy files.
 
-## cp
-Copies files.
-
-```bash
 cp file1.txt file2.txt
-```
+mv
 
----
+Move/rename.
 
-## mv
-Moves or renames files.
+Rename:
 
-```bash
 mv old.txt new.txt
-```
 
----
+Move:
 
-# Hands-on Practice
+mv file.txt /home/ubuntu/
+7. Hands-on Practice (IMPORTANT)
 
-```bash
+Practice these commands yourself:
+
 pwd
 ls
 mkdir linux-practice
@@ -244,420 +191,68 @@ ls -l
 cp notes.txt copy.txt
 mv copy.txt renamed.txt
 rm renamed.txt
-```
+8. Real-World DevOps Example
 
----
+Suppose:
 
-# Real-world DevOps Usage
+logs check karne hain
+config file edit karni hai
+deployment folder me jana hai
 
-Linux commands are used for:
-- Checking logs
-- Managing servers
-- Deploying applications
-- Editing configuration files
+Tab ye commands daily use hongi.
 
 Example:
 
-```bash
 cd /var/log
 ls
-```
+9. Interview Questions
+Q1. Linux kya hai?
 
----
+Operating system.
 
-# Interview Questions
+Q2. pwd command kya karta hai?
 
-## What is Linux?
-Linux is an open-source operating system.
+Current directory path dikhata hai.
 
-## What does pwd do?
-Shows present working directory.
+Q3. ls -a kya karta hai?
 
-## Difference between cp and mv?
-- cp = copy
-- mv = move/rename
+Hidden files bhi show karta hai.
 
----
+Q4. Difference between cp and mv?
+cp → copy
+mv → move/rename
+10. Today's Task
+Task 1
 
-# Summary
+Ubuntu install karo:
 
-Today we learned:
-- Linux basics
-- Linux architecture
-- Basic commands
-- Hands-on practice
-````
+VirtualBox OR
+WSL2
+Task 2
 
-# DevOps Study Notes (Linux + Networking)
+Commands practice karo 20–30 mins.
 
-These notes are designed for:
+Task 3
 
-* quick revision
-* interview preparation
-* production troubleshooting
-* mid-level DevOps daily usage
+GitHub Notes Push
 
----
+Repo structure:
 
-# Linux Notes
+linux/
+ └── day1-linux-basics.md
+11. Tomorrow We Learn
+Linux File System
+/etc
+/var
+/home
+/bin
+/root
+/tmp
 
-## Day 1 — Linux Basics
+AND:
 
-### What is Linux?
+File Permissions
+chmod
+chown
 
-Linux is an open-source operating system widely used in cloud servers, DevOps, Docker, and Kubernetes.
-
----
-
-# pwd
-
-## Meaning
-
-pwd = present working directory
-
-## Purpose
-
-Shows current directory path.
-
-## Example
-
-```bash
-pwd
-```
-
-## Example Output
-
-```text
-/home/ubuntu
-```
-
-## Real DevOps Usage
-
-Used during deployments and log navigation.
-
----
-
-# ls
-
-## Purpose
-
-Lists files and folders.
-
-## Commands
-
-```bash
-ls
-ls -l
-ls -a
-```
-
-## Breakdown
-
-* -l = long listing format
-* -a = hidden files
-
----
-
-# chmod
-
-## Meaning
-
-chmod = change mode
-
-## Purpose
-
-Changes file permissions.
-
-## Example
-
-```bash
-chmod 755 deploy.sh
-```
-
-## Breakdown
-
-7 = rwx
-5 = r-x
-5 = r-x
-
-## Real DevOps Usage
-
-Used for deployment scripts.
-
----
-
-# ps aux
-
-## Meaning
-
-ps = process status
-
-## Purpose
-
-Shows running processes.
-
-## Breakdown
-
-* a = all users
-* u = user format
-* x = background processes
-
-## Example
-
-```bash
-ps aux
-```
-
-## Real DevOps Usage
-
-```bash
-ps aux | grep nginx
-```
-
----
-
-# tail -f
-
-## Purpose
-
-Shows live logs.
-
-## Example
-
-```bash
-tail -f /var/log/syslog
-```
-
-## Real DevOps Usage
-
-Production log monitoring.
-
----
-
-# SSH
-
-## Meaning
-
-SSH = Secure Shell
-
-## Purpose
-
-Remote server access.
-
-## Example
-
-```bash
-ssh ubuntu@server-ip
-```
-
----
-
-# SCP
-
-## Meaning
-
-SCP = Secure Copy
-
-## Example
-
-```bash
-scp file.txt user@server:/tmp
-```
-
----
-
-# df -h
-
-## Meaning
-
-df = disk filesystem
-
-## Purpose
-
-Shows disk usage.
-
-## Example
-
-```bash
-df -h
-```
-
----
-
-# free -h
-
-## Purpose
-
-Shows memory usage.
-
-## Example
-
-```bash
-free -h
-```
-
----
-
-# curl
-
-## Meaning
-
-Client URL
-
-## Purpose
-
-Sends HTTP requests.
-
-## Example
-
-```bash
-curl google.com
-```
-
----
-
-# Networking Notes
-
-## OSI Model
-
-### Meaning
-
-OSI = Open Systems Interconnection
-
-### Purpose
-
-Networking communication model.
-
----
-
-# TCP
-
-## Meaning
-
-TCP = Transmission Control Protocol
-
-## Purpose
-
-Reliable communication.
-
----
-
-# UDP
-
-## Meaning
-
-UDP = User Datagram Protocol
-
-## Purpose
-
-Fast communication.
-
----
-
-# DNS
-
-## Meaning
-
-DNS = Domain Name System
-
-## Purpose
-
-Converts domain names to IP addresses.
-
----
-
-# dig
-
-## Meaning
-
-Domain Information Groper
-
-## Example
-
-```bash
-dig google.com
-```
-
----
-
-# HTTP
-
-## Meaning
-
-HTTP = HyperText Transfer Protocol
-
-## Purpose
-
-Client-server communication.
-
----
-
-# HTTPS
-
-## Purpose
-
-Encrypted communication using SSL/TLS.
-
----
-
-# CIDR
-
-## Meaning
-
-CIDR = Classless Inter-Domain Routing
-
-## Example
-
-```text
-192.168.1.0/24
-```
-
----
-
-# NAT
-
-## Meaning
-
-NAT = Network Address Translation
-
-## Purpose
-
-Allows private servers internet access.
-
----
-
-# Nginx
-
-## Purpose
-
-Web server + reverse proxy + load balancer.
-
----
-
-# proxy_pass
-
-## Purpose
-
-Forwards traffic to backend application.
-
-## Example
-
-```nginx
-proxy_pass http://localhost:3000;
-```
-
----
-
-# Important Production Commands
-
-```bash
-ps aux
-htop
-df -h
-free -h
-tail -f /var/log/syslog
-curl -I google.com
-ss -tulnp
-systemctl status nginx
-nginx -t
-```
+Ye bahut important topic hai 🔥
