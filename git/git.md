@@ -60,7 +60,7 @@ git --version
 **One-time config (do this once per machine):**
 ```bash
 git config --global user.name "Anuj Dwivedi"
-git config --global user.email "anuj.dwivedi@cashify.in"
+git config --global user.email "anujdwivedi13194@gmail.com"
 git config --global init.defaultBranch main
 git config --global pull.rebase false   # use merge on pull (safer default)
 git config --global core.editor "vim"   # or nano, code --wait, etc.
@@ -74,7 +74,7 @@ git config --global --edit   # opens ~/.gitconfig
 
 **Set up SSH for GitHub/GitLab** (recommended over HTTPS):
 ```bash
-ssh-keygen -t ed25519 -C "anuj.dwivedi@cashify.in"
+ssh-keygen -t ed25519 -C "anujdwivedi13194@gmail.com"
 cat ~/.ssh/id_ed25519.pub   # paste into GitHub → Settings → SSH Keys
 ssh -T git@github.com       # verify
 ```
