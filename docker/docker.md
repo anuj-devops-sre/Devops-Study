@@ -1253,6 +1253,434 @@ sudo dockerd --validate
 
 ---
 
+## Daily Revision (7-Day Rotation)
+
+Har din 5–10 minute spend karo apne day ke topic pe. Saare 7 din cycle karke phir Day 1 se restart. Yeh **concept aur gotcha review** hai. Niche jo Commands Daily Drill hai woh muscle-memory ka companion hai.
+
+### Day 1 — Docker Kya Hai + Core Concepts + Images
+
+**Recall (bina dekhe answer karne ki koshish karo):**
+1. Container aur VM mein ek line ka difference?
+2. Dockerfile → Image → Container ka relationship?
+3. "Layer" ka matlab kya hai, aur Dockerfile instructions ka order kyun important hai?
+4. `latest` kya hai aur prod mein kyun nahi use karna?
+5. Digest pin (`@sha256:...`) tag se kya extra deta hai?
+
+**Yaad rakhne wali mappings:**
+- Dockerfile = recipe (instructions)
+- Image = compiled snapshot (read-only)
+- Container = image ka running instance
+- Registry = jaha images store hote hain (Docker Hub, ECR, GHCR)
+
+**Gotchas:**
+- Tags mutable hote hain — aaj ka `myapp:v1.2.3` kal wala same nahi hoga zaroori. Digests immutable hain.
+- `latest` ka matlab "newest" nahi hai — yeh sirf default tag hai jab koi specify nahi karta.
+- Har Dockerfile instruction = ek layer = ek cache point. Order = cache efficiency.
+
+---
+
+### Day 2 — Containers (Lifecycle, Logs, Exec, Inspect)
+
+**Recall:**
+1. `docker stop` aur `docker kill` mein difference?
+2. `docker stop` pehle kya signal bhejta hai? Kitne second baad escalate karta hai?
+3. `docker run -it` aur `docker exec -it` mein difference?
+4. `--rm` kya karta hai?
+5. Running container se host pe file kaise copy karte hain?
+
+**Lifecycle yaad karo:**
+```
+run    = create + start
+stop   = SIGTERM, 10s baad SIGKILL
+kill   = SIGKILL turant
+restart= stop + start
+rm     = delete (stopped hona chahiye)
+```
+
+**Gotchas:**
+- `docker run` hamesha NAYA container banata hai. Existing ko restart karna ho toh `docker start` use karo.
+- Stopped container abhi bhi exist karta hai (aur disk leta hai). `docker ps -a` se dikhega.
+- `--rm` ke bina, har `docker run` ek dead container chhod jaata hai jo disk fill karta jaata hai.
+
+---
+
+### Day 3 — Dockerfile Basics
+
+**Recall:**
+1. CMD aur ENTRYPOINT mein difference?
+2. Yeh order kyun important hai:
+   ```
+   COPY . .
+   RUN pip install -r requirements.txt
+   ```
+   vs
+   ```
+   COPY requirements.txt .
+   RUN pip install -r requirements.txt
+   COPY . .
+   ```
+3. `EXPOSE 8000` actually port publish karta hai?
+4. `COPY` aur `ADD` mein difference?
+5. `.dockerignore` kya karta hai?
+
+**Instruction roles yaad karo:**
+| Instruction | Role |
+|---|---|
+| FROM | Base image (pehli line) |
+| WORKDIR | Working directory set + create |
+| COPY | Files image mein copy karo |
+| RUN | BUILD time pe execute (layer banata hai) |
+| CMD | Default command (override ho sakta hai) |
+| ENTRYPOINT | Fixed command (CMD uske args banta hai) |
+| EXPOSE | Sirf documentation — publish nahi karta |
+| ENV | Environment variables set karo |
+| ARG | Build-time variable |
+| USER | User switch karo (default root — bura hai) |
+
+**Gotchas:**
+- `EXPOSE` sirf metadata hai. Ports tabhi publish hote hain jab `docker run` mein `-p` lagao.
+- Default root ke aur security risk hai. Niche `USER` add karo.
+- `ADD` archives auto-extract karta hai — predictability ke liye `COPY` better.
+
+---
+
+### Day 4 — Volumes + Networking
+
+**Recall:**
+1. Teen mount types aur har ek kis ke liye best?
+2. Default `bridge` network containers ke beech DNS kyun nahi deta?
+3. `-p 8080:80` aur `-p 127.0.0.1:8080:80` mein difference?
+4. `docker volume prune` kya delete karta hai?
+5. Different user-defined networks pe do containers ek dusre ko reach kar sakte hain?
+
+**Volume types:**
+| Type | Use |
+|---|---|
+| Named volume (`-v pgdata:/path`) | Persistent app data, Docker-managed |
+| Bind mount (`-v $(pwd):/path`) | Dev mode, live code reload |
+| tmpfs (`--tmpfs /tmp`) | In-memory, ephemeral, fast |
+
+**Gotchas:**
+- Default `bridge` = containers ke beech DNS nahi. Hamesha user-defined network banao.
+- Bind mount `:ro` se container ke andar read-only ho jaata hai (host abhi bhi likh sakta hai).
+- Alag networks pe containers ek dusre ko reach nahi kar sakte jab tak dono pe explicitly connect na ho.
+
+---
+
+### Day 5 — Compose + Multi-stage + Env/Secrets
+
+**Recall:**
+1. Compose file mein services ek dusre ko kaise dhundhte hain?
+2. `docker compose down` aur `docker compose down -v` mein difference?
+3. Multi-stage builds kya problem solve karte hain?
+4. `ENV DB_PASSWORD=secret` Dockerfile mein kyun bura idea hai?
+5. BuildKit `--secret` flag kis liye hai?
+
+**Compose mental model:** multi-container app ka *state* declare karta hai. Services ek dusre ko *service name* se reach karte hain auto-created network pe.
+
+**Multi-stage pattern:**
+```
+Stage 1 (builder): bada base, compile/install
+Stage 2 (final):   chhota base, COPY --from=builder sirf artifact
+```
+
+**Gotchas:**
+- `docker compose down` containers + networks remove karta hai; volumes bachte hain. `-v` se volumes bhi delete.
+- Build args (`ARG`) aur `ENV` build mein set kiye, `docker history` mein visible. Secrets kabhi waha mat daalo.
+- BuildKit secrets (`RUN --mount=type=secret`) build ke time available hote hain par kisi bhi layer mein nahi jaate.
+
+---
+
+### Day 6 — Healthchecks + Resources + Registries + Multi-arch
+
+**Recall:**
+1. `HEALTHCHECK` fail hone pe Docker kya karta hai?
+2. `--memory` limit lagane ka sabse common reason?
+3. `--memory` aur `--memory-swap` mein difference?
+4. ECR login token kyun expire hota hai, aur kitni baar?
+5. Ek hi image jo amd64 aur arm64 dono pe chale, kaise banate hain?
+
+**Health states:** `starting` → `healthy` / `unhealthy`. Compose ka `depends_on: condition: service_healthy` iska wait karta hai.
+
+**Resource limits:**
+| Flag | Limit cross hone pe |
+|---|---|
+| `--cpus` | Throttled (killed nahi) |
+| `--memory` | OOMKilled (exit 137) |
+| `--pids-limit` | Naye process create fail |
+
+**Multi-arch one-liner:**
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t <ecr>/myapp:0.1 --push .
+```
+
+**Gotchas:**
+- ECR tokens har 12h mein expire. CI ko har run pe refresh karna padta hai.
+- amd64 Mac/CI pe build aur Graviton (arm64) pe deploy buildx ke bina = `exec format error`.
+- Multi-arch build ka `docker push` `buildx` ke saath `--push` se hota hai; baad mein `docker push` galat hai.
+
+---
+
+### Day 7 — DevOps/SRE Daily Operations
+
+**Recall:**
+1. Exit code 137 ka matlab? 139? 143?
+2. Docker host ka disk fill hone ka sabse common reason?
+3. Daemon log driver kahaan configure hota hai?
+4. `live-restore: true` kya karta hai?
+5. Image itni badi kis Dockerfile instruction ne banayi, kaise pata kare?
+
+**Exit codes:**
+| Code | Meaning |
+|---|---|
+| 0 | Clean exit |
+| 1 | Generic app error |
+| 125 | Docker daemon fail |
+| 126 | Command executable nahi |
+| 127 | Command not found |
+| 137 | SIGKILL (usually OOMKilled) |
+| 139 | SIGSEGV (segfault) |
+| 143 | SIGTERM (graceful shutdown) |
+
+**Production ke liye daemon.json mein zaroori:**
+- `log-opts: max-size, max-file` (rotation — iske bina logs disk fill kar dete hain)
+- `live-restore: true` (daemon restart pe containers chalte rahein)
+- `default-ulimits.nofile` ("too many open files" rokne ke liye)
+
+**Gotchas:**
+- Default log driver `json-file` mein rotation NAHI hai. Hosts `/var/lib/docker/containers/*/*.log` fill hone se mar jaate hain.
+- `docker system prune -af --volumes` SAARE unused volumes delete karta hai — including jo aap shayad rakhna chahte ho. Targeted prunes use karo.
+- `docker history` layer commands AUR sizes dikhata hai — bloat ka culprit usually obvious hota hai.
+
+---
+
+## Commands Daily Drill (Sirf Muscle Memory)
+
+Daily Revision concepts test karta hai. **Yeh section ungliyon ko test karta hai.** Har command real cluster/host mein memory se type karo (ya `--dry-run` use karo agar actually nahi banana). Pehle explanations dhako, commands se yaad karo kya karta hai. Phir commands dhako, scenarios padho, command memory se type karo.
+
+Goal: jab 2am pe incident aaye, dimag ke pehle haath sahi command type kar dein.
+
+### Drill Day 1 — Images
+
+```bash
+docker pull python:3.12-slim                                           # download
+docker images                                                          # local images list
+docker images --format "{{.Size}}\t{{.Repository}}:{{.Tag}}" | sort -h # size se sort
+docker inspect python:3.12-slim                                        # full metadata
+docker history --no-trunc --human python:3.12-slim                     # layer-by-layer
+docker image inspect python:3.12-slim --format '{{.Architecture}} {{.Size}}'
+docker rmi nginx:1.25                                                  # ek delete
+docker image prune -f                                                  # dangling delete
+docker image prune -af --filter "until=168h"                           # 7d+ unused delete
+docker tag myapp:0.1 <ecr>/myapp:0.1                                   # registry ke liye re-tag
+```
+
+**Scenario → command:**
+- "Yeh image 2GB kyun hai?" → `docker history --no-trunc --human <image>`
+- "Yeh image kis arch ke liye bani hai?" → `docker image inspect <image> --format '{{.Architecture}}'`
+- "Saari ek hafte se nahi use ki images saaf karo" → `docker image prune -af --filter "until=168h"`
+
+---
+
+### Drill Day 2 — Containers
+
+```bash
+docker run -d -p 8080:80 --name web nginx                              # detached + port + name
+docker run -it --rm ubuntu:24.04 bash                                  # interactive + auto-cleanup
+docker run --restart=unless-stopped -d --name api myapp:0.1            # production restart policy
+docker ps                                                              # running
+docker ps -a                                                           # sab (stopped sahit)
+docker ps -a --filter "status=exited" --format "table {{.Names}}\t{{.Status}}"
+docker stop <name>                                                     # SIGTERM, 10s, SIGKILL
+docker kill <name>                                                     # immediate
+docker restart <name>
+docker rm <name>                                                       # stopped delete
+docker rm -f <name>                                                    # force (kill + delete)
+docker logs <name>                                                     # saare logs
+docker logs --tail 200 --since 15m --timestamps <name>                 # windowed
+docker logs -f <name>                                                  # follow
+docker exec -it <name> sh                                              # shell andar
+docker exec <name> env                                                 # one-shot
+docker inspect <name>                                                  # full state
+docker inspect <name> --format '{{.State.ExitCode}} {{.State.OOMKilled}}'
+docker top <name>                                                      # andar ke processes
+docker stats --no-stream                                               # CPU/mem snapshot
+docker port <name>                                                     # port mappings
+docker cp ./file <name>:/path                                          # andar copy
+docker cp <name>:/path ./file                                          # bahar copy
+```
+
+**Scenario → command:**
+- "Container mar gaya — OOMKilled tha?" → `docker inspect <name> --format '{{.State.OOMKilled}}'`
+- "Last 5 minutes ke logs timestamps ke saath" → `docker logs --since 5m --timestamps <name>`
+- "Crashed containers list karo, naam + status" → `docker ps -a --filter "status=exited" --format "table {{.Names}}\t{{.Status}}"`
+
+---
+
+### Drill Day 3 — Build & Dockerfile
+
+```bash
+docker build -t myapp:0.1 .                                            # tag ke saath build
+docker build -t myapp:0.1 -f Dockerfile.prod .                         # custom Dockerfile
+docker build --no-cache -t myapp:0.1 .                                 # cache ignore
+docker build --target builder -t myapp:builder .                       # ek stage tak ruko
+docker build --build-arg VERSION=1.2 -t myapp:0.1 .                    # build arg
+docker build --secret id=npmrc,src=$HOME/.npmrc -t myapp:0.1 .         # BuildKit secret
+DOCKER_BUILDKIT=1 docker build -t myapp:0.1 .                          # BuildKit force
+docker buildx create --use --name multiarch                            # multi-arch builder
+docker buildx build --platform linux/amd64,linux/arm64 -t <ecr>/myapp:0.1 --push .
+docker buildx build \
+  --cache-from type=registry,ref=<ecr>/myapp:cache \
+  --cache-to   type=registry,ref=<ecr>/myapp:cache,mode=max \
+  -t <ecr>/myapp:0.1 --push .
+docker buildx imagetools inspect <ecr>/myapp:0.1                       # multi-arch manifest verify
+```
+
+**Scenario → command:**
+- "CI builds slow hain kyunki har run pe cache jaata hai" → buildx `--cache-from/--cache-to type=registry`
+- "Graviton ke liye bhi build karo" → `docker buildx build --platform linux/amd64,linux/arm64 ... --push`
+- "Builder stage tak ruk ke debug karna" → `docker build --target builder -t debug .` phir `docker run -it debug sh`
+
+---
+
+### Drill Day 4 — Volumes & Networks
+
+```bash
+docker volume create pgdata
+docker volume ls
+docker volume inspect pgdata
+docker volume rm pgdata
+docker volume prune -f                                                 # unused remove
+docker run -d -v pgdata:/var/lib/postgresql/data postgres:16           # named volume
+docker run -d -v $(pwd):/app:ro myapp                                  # bind mount (RO)
+docker run --tmpfs /tmp:size=100M myapp                                # tmpfs
+
+docker network create app-net
+docker network ls
+docker network inspect app-net
+docker run -d --name db --network app-net postgres:16
+docker run -d --name api --network app-net myapi:0.1                   # api "db" resolve kar sakta hai
+docker network connect app-net <existing-container>
+docker network disconnect app-net <container>
+docker network prune -f
+```
+
+**Scenario → command:**
+- "Postgres data container delete hone ke baad bhi rehna chahiye" → named volume `-v pgdata:/var/lib/postgresql/data`
+- "Do containers ko DNS se baat karni hai" → user-defined network banao, dono attach karo
+- "Worker pod ke liye quick scratch space" → `--tmpfs /tmp:size=100M`
+
+---
+
+### Drill Day 5 — Compose
+
+```bash
+docker compose up -d                                                   # stack start (detached)
+docker compose up -d --build                                           # rebuild + start
+docker compose down                                                    # stop + remove
+docker compose down -v                                                 # ...volumes bhi delete
+docker compose ps                                                      # stack status
+docker compose logs -f <service>                                       # ek service ke logs follow
+docker compose logs --tail 200 <service>
+docker compose exec <service> sh                                       # service mein shell
+docker compose run --rm <service> <cmd>                                # one-off command
+docker compose restart <service>
+docker compose pull                                                    # base images update
+docker compose build <service>                                         # ek rebuild
+docker compose config                                                  # validate + resolved YAML
+docker compose -f compose.yaml -f compose.prod.yaml up -d              # multiple overrides
+```
+
+**Scenario → command:**
+- "Dev DB ke khilaaf ek one-off migration run karo" → `docker compose run --rm api python manage.py migrate`
+- "Dev environment poora reset karo" → `docker compose down -v && docker compose up -d --build`
+- "Mera compose file validate karo" → `docker compose config`
+
+---
+
+### Drill Day 6 — Registries & ECR
+
+```bash
+docker login ghcr.io -u <user>
+docker login                                                           # Docker Hub
+aws ecr get-login-password --region ap-south-1 \
+  | docker login --username AWS --password-stdin <acct>.dkr.ecr.ap-south-1.amazonaws.com
+docker tag myapp:0.1 <acct>.dkr.ecr.ap-south-1.amazonaws.com/myapp:0.1
+docker push <acct>.dkr.ecr.ap-south-1.amazonaws.com/myapp:0.1
+docker pull <acct>.dkr.ecr.ap-south-1.amazonaws.com/myapp:0.1
+
+aws ecr create-repository --repository-name myapp \
+  --image-scanning-configuration scanOnPush=true \
+  --image-tag-mutability IMMUTABLE --region ap-south-1
+aws ecr list-images --repository-name myapp --region ap-south-1
+aws ecr describe-images --repository-name myapp --region ap-south-1 \
+  --query 'sort_by(imageDetails,& imagePushedAt)[*].[imageTags[0],imagePushedAt,imageSizeInBytes]' \
+  --output table
+
+# Scan
+trivy image --severity HIGH,CRITICAL --exit-code 1 myapp:0.1
+docker scout cves myapp:0.1
+```
+
+**Scenario → command:**
+- "ECR token expire ho gaya" → `aws ecr get-login-password ... | docker login --password-stdin ...`
+- "CVEs mile toh CI block ho" → `trivy image --severity HIGH,CRITICAL --exit-code 1 <image>`
+- "Is ECR repo mein kaunsi images hain, date se sorted?" → upar wala `aws ecr describe-images` query
+
+---
+
+### Drill Day 7 — Operations (Triage, Disk, Daemon)
+
+```bash
+# Triage
+docker ps -a --filter "status=exited" --format "table {{.Names}}\t{{.Status}}\t{{.RunningFor}}"
+docker logs --since 15m --until 2m --timestamps --tail 500 <name>
+docker inspect <name> --format 'Exit={{.State.ExitCode}} OOM={{.State.OOMKilled}} Restarts={{.RestartCount}}'
+docker events --since 1h --filter type=container --filter event=die
+docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+docker top <name>
+
+# Disk
+docker system df
+docker system df -v                                                    # per-image/container/volume
+docker container prune -f
+docker image prune -af --filter "until=168h"
+docker builder prune -af --filter "until=72h"
+docker volume prune -f
+docker network prune -f
+docker system prune -af --volumes                                      # nuclear — dhyaan se
+
+# Daemon
+sudo systemctl status docker
+sudo journalctl -u docker -n 200 --no-pager
+sudo cat /etc/docker/daemon.json
+sudo dockerd --validate                                                # config check
+
+# Image forensics
+docker history --no-trunc --human <image>
+dive <image>                                                           # interactive layer explorer
+```
+
+**Scenario → command:**
+- "Docker host pe disk full" → `docker system df -v` → targeted prunes (builder, image, container)
+- "Container <X> kal raat 03:00 pe kyun restart hua?" → `docker events --since 12h --filter container=<X>`
+- "Container baar baar OOMKill ho raha — confirm karo" → `docker inspect <name> --format '{{.State.OOMKilled}}'`
+- "Config change ke baad daemon healthy hai check karo" → `sudo dockerd --validate && sudo systemctl status docker`
+
+---
+
+### Drills Kaise Use Kare
+
+**Beginner (week 1):** har command exactly jaise likha hai waise type karo. Explanation padho. Memorize abhi nahi.
+
+**Intermediate (week 2–3):** explanation dhako. Command dekho, yaad karo kya karta hai. Phir reverse: command dhako, scenario padho, memory se type karo.
+
+**Advanced (week 4+):** commands chain karo. "Scenario → command" pairs ke liye, ek one-line pipeline likho jo poora solve kare (action trigger + result verify).
+
+**Weekly self-test:** har day se ek command randomly pick karo. Bina dekhe type karo. Jo fumble ho rahi ho woh kal ki drill hai.
+
+---
+
 ## Aage Kya Seekhein
 
 Jab yeh sab comfortable lagne lage, toh next natural steps:
