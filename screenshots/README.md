@@ -4,17 +4,10 @@ This directory contains visual evidence of labs, deployments, and successful con
 
 ## 📂 Gallery
 
-### ☁️ Cloud & Infrastructure
-- **VPC Setup**: ![VPC](./vpc-dashboard.png) *(Placeholder)*
-- **EKS Cluster**: ![EKS](./eks-cluster.png) *(Placeholder)*
-
-### 🐳 Containers
-- **Docker Compose Up**: ![Docker](./docker-up.png) *(Placeholder)*
-- **Kubernetes Dashboard**: ![K8s](./k8s-dashboard.png) *(Placeholder)*
-
-### 📊 Monitoring (Grafana Dashboards)
-- **System Metrics**: ![Grafana](./grafana-metrics.png) *(Placeholder)*
-- **Loki Logs**: ![Loki](./loki-logs.png) *(Placeholder)*
+### 🚀 Lab Proofs
+- **Screenshot 1**: ![Proof 1](./image.png)
+- **Screenshot 2**: ![Proof 2](./image-1.png)
+- **Screenshot 3**: ![Proof 3](./image-2.png)
 
 ---
 
@@ -23,4 +16,8 @@ This directory contains visual evidence of labs, deployments, and successful con
 2.  `README.md` mein neeche diye gaye format mein link add karein:
     ```markdown
     ![Description](./your-image-name.png)
+    ![
+        ![alt text](image-1.png)
+    ](image.png)
+    ![alt text](image-2.png)
     ```
