@@ -4,10 +4,10 @@ This directory contains visual evidence of labs, deployments, and successful con
 
 ## 📂 Gallery
 
-### 🚀 Lab Proofs
-- **Screenshot 1**: ![Proof 1](./image.png)
-- **Screenshot 2**: ![Proof 2](./image-1.png)
-- **Screenshot 3**: ![Proof 3](./image-2.png)
+### 🚀 Lab Proofs (Click images to see Notes)
+- **AWS / Cloud Infrastructure**: [![AWS Proof](./image.png)](../aws/README.md)
+- **Kubernetes / Containers**: [![K8s Proof](./image-1.png)](../kubernetes/kubernats.md)
+- **Monitoring & Observability**: [![Monitoring Proof](./image-2.png)](../monitoring/README.md)
 
 ---
 
