@@ -7,15 +7,15 @@ This roadmap is designed to transform you into a **Site Reliability Engineer (SR
 ## 🏗️ Phase 1: The Foundation (The "Dev" & "Ops" Basics)
 *Target: Understand how systems talk and how code is managed.*
 
-1.  **Linux Mastery** (`/linux`)
+1.  **Linux Mastery** (`/linux/day1-linux-basics.md`)
     *   [x] File Systems, Permissions, and Users.
     *   [x] Shell Scripting (Automating boring tasks).
     *   [x] Process management and Systemd.
-2.  **Networking Fundamentals** (`/networking`)
+2.  **Networking Fundamentals** (`/networking/day1-osi-model.md`)
     *   [x] OSI Model & TCP/IP.
     *   [x] DNS, HTTP/HTTPS, SSL/TLS.
     *   [x] Load Balancing (Nginx/HAProxy/NLB).
-3.  **Git & Version Control** (`/git`)
+3.  **Git & Version Control** (`/git/git.md`)
     *   [x] Branching strategies (Gitflow).
     *   [x] Resolving conflicts & Rebasing.
 
@@ -24,15 +24,15 @@ This roadmap is designed to transform you into a **Site Reliability Engineer (SR
 ## 📦 Phase 2: Containerization & Cloud (The Modern Stack)
 *Target: Move away from "it works on my machine" to "it works everywhere".*
 
-1.  **Docker** (`/docker`)
+1.  **Docker** (`/docker/docker.md`)
     *   [x] Writing efficient Dockerfiles (Multi-stage builds).
     *   [x] Docker Compose for multi-container apps.
     *   [x] Networking & Volumes.
-2.  **Cloud Infrastructure (AWS)** (`/aws`)
+2.  **Cloud Infrastructure (AWS)** (`/aws/README.md`)
     *   [x] Identity & Access Management (IAM).
     *   [x] VPC Design (Public/Private Subnets, NAT).
     *   [x] Compute (EC2) & Storage (S3, EBS).
-3.  **Infrastructure as Code (Terraform)** (`/terraform`)
+3.  **Infrastructure as Code (Terraform)** (`/terraform/00-basics/main.tf`)
     *   [x] Providers & Resources.
     *   [x] Modules (Reusable code).
     *   [x] Remote State (S3 + DynamoDB).
@@ -42,22 +42,22 @@ This roadmap is designed to transform you into a **Site Reliability Engineer (SR
 ## ☸️ Phase 3: Orchestration & Reliability (The SRE Core)
 *Target: Managing scale, reliability, and automated recovery.*
 
-- [x] **Kubernetes** (`/kubernetes`)
+- [x] **Kubernetes** (`/kubernetes/kubernats.md`)
     *   [x] Pods, Deployments, Services.
     *   [x] ConfigMaps & Secrets.
     *   [x] Ingress Controllers.
     *   [x] Helm Charts (Package management).
     *   [x] RKE2 Production-grade Cluster Setup.
 
-2.  **Observability (The SRE Soul)** (`/monitoring`)
+2.  **Observability (The SRE Soul)** (`/monitoring/README.md`)
     *   [x] Prometheus & Grafana (Metrics).
     *   [x] ELK/Loki (Logging).
     *   [ ] Golden Signals (Latency, Traffic, Errors, Saturation).
-3.  **Databases & Storage**
+3.  **Databases & Storage** (`/databases/README.md`)
     *   [ ] Relational: PostgreSQL & MySQL (High Availability).
     *   [ ] NoSQL: MongoDB & Redis (Caching).
     *   [ ] OLAP: ClickHouse (Big Data/Analytics).
-4.  **CI/CD Pipelines & Advanced IaC** (`/projects`)
+4.  **CI/CD Pipelines & Advanced IaC** (`/projects/01-docker-3tier-app/`)
     *   [x] GitHub Actions (Automation).
     *   [ ] Jenkins (Enterprise CI/CD).
     *   [ ] Ansible (Configuration Management).

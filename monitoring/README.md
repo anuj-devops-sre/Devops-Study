@@ -5,9 +5,11 @@ This module provides a production-grade observability stack using **Prometheus**
 ## 🚀 Components
 
 - **Prometheus**: Time-series database for metrics collection.
-- **Grafana**: Multi-platform open-source analytics and interactive visualization web application.
-- **Loki**: Horizontally scalable, highly available, multi-tenant log aggregation system.
-- **Promtail**: Agent which ships the contents of local logs to a private Loki instance.
+- **Grafana**: Multi-platform analytics and interactive visualization.
+- **Loki**: Horizontally scalable log aggregation system.
+- **ELK Stack (Elasticsearch, Logstash, Kibana)**: Search, analyze, and visualize data in real-time.
+- **CloudWatch**: AWS-native monitoring and observability service.
+- **Promtail**: Agent which ships the contents of local logs to Loki.
 - **Node Exporter**: Prometheus exporter for hardware and OS metrics.
 
 ## 🛠️ Getting Started

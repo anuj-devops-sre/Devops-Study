@@ -14,18 +14,19 @@ Welcome to the **Devops-Study** repository! This is a curated, hands-on roadmap 
 *Senior DevOps & SRE Engineer @ Cashify*  
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/anuj-kumar-dwivedi/)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/anuj-devops-sre)
+[![Profile](https://img.shields.io/badge/Profile-Readme-green?style=flat&logo=github&logoColor=white)](https://github.com/anuj-devops-sre/anuj-devops-sre/blob/main/README.md)
 
 ### 🛠️ Professional Tech Stack
 
 | Category | Tools |
 | :--- | :--- |
-| **☁️ Cloud & Infra** | [![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)](./aws/) [![EKS](https://img.shields.io/badge/EKS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)](./kubernetes/) [![LocalStack](https://img.shields.io/badge/LocalStack-%23000000.svg?style=for-the-badge&logo=localstack&logoColor=white)](./localstack/) |
-| **🐳 Containers** | [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)](./kubernetes/) [![Docker](https://img.shields.io/badge/docker-%232496ed.svg?style=for-the-badge&logo=docker&logoColor=white)](./docker/) [![Helm](https://img.shields.io/badge/Helm-%230F1628.svg?style=for-the-badge&logo=helm&logoColor=white)](./kubernetes/) [![Rancher](https://img.shields.io/badge/Rancher-%2300758F.svg?style=for-the-badge&logo=rancher&logoColor=white)](./rancher/rancher-guide.md) |
-| **⚙️ CI/CD & IaC** | [![Jenkins](https://img.shields.io/badge/jenkins-%232C5263.svg?style=for-the-badge&logo=jenkins&logoColor=white)](./ci-cd/jenkins.md) [![GitHub Actions](https://img.shields.io/badge/Github%20Actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)](./git/) [![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)](./terraform/) [![Ansible](https://img.shields.io/badge/ansible-%23EE0000.svg?style=for-the-badge&logo=ansible&logoColor=white)](./ci-cd/ansible.md) |
-| **📊 Observability** | [![Grafana](https://img.shields.io/badge/grafana-%23F46800.svg?style=for-the-badge&logo=grafana&logoColor=white)](./monitoring/) [![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=Prometheus&logoColor=white)](./monitoring/) [![Loki](https://img.shields.io/badge/Loki-005AD4?style=for-the-badge&logo=grafana&logoColor=white)](./monitoring/) [![Elasticsearch](https://img.shields.io/badge/Elasticsearch-005571?style=for-the-badge&logo=elasticsearch&logoColor=white)](./monitoring/) |
-| **🗄️ Databases** | [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](./databases/postgresql.md) [![MySQL](https://img.shields.io/badge/mysql-%2300f.svg?style=for-the-badge&logo=mysql&logoColor=white)](./databases/postgresql.md) [![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white)](./databases/redis.md) [![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white)](./databases/redis.md) [![ClickHouse](https://img.shields.io/badge/ClickHouse-FFCC00?style=for-the-badge&logo=clickhouse&logoColor=black)](./databases/clickhouse.md) |
-| **💻 Scripting** | [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](./scripting/python-for-devops.md) [![Shell Script](https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white)](./linux/) [![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](./linux/) |
-| **🤖 AI for Ops** | [![Claude AI](https://img.shields.io/badge/Claude%20AI-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](./ai-ops/ai-tools.md) [![ChatGPT](https://img.shields.io/badge/ChatGPT-74aa1c?style=for-the-badge&logo=openai&logoColor=white)](./ai-ops/ai-tools.md) |
+| **☁️ Cloud & Infra** | [![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)](./aws/README.md) [![EKS](https://img.shields.io/badge/EKS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)](./kubernetes/kubernats.md) [![ECS](https://img.shields.io/badge/ECS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)](./aws/README.md) [![RDS](https://img.shields.io/badge/RDS-%23527FFF.svg?style=for-the-badge&logo=amazon-rds&logoColor=white)](./aws/README.md) [![LocalStack](https://img.shields.io/badge/LocalStack-%23000000.svg?style=for-the-badge&logo=localstack&logoColor=white)](./localstack/README.md) |
+| **🐳 Containers** | [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)](./kubernetes/kubernats.md) [![Docker](https://img.shields.io/badge/docker-%232496ed.svg?style=for-the-badge&logo=docker&logoColor=white)](./docker/docker.md) [![Helm](https://img.shields.io/badge/Helm-%230F1628.svg?style=for-the-badge&logo=helm&logoColor=white)](./kubernetes/kubernats.md) [![Rancher](https://img.shields.io/badge/Rancher-%2300758F.svg?style=for-the-badge&logo=rancher&logoColor=white)](./rancher/rancher-guide.md) |
+| **⚙️ CI/CD & IaC** | [![Jenkins](https://img.shields.io/badge/jenkins-%232C5263.svg?style=for-the-badge&logo=jenkins&logoColor=white)](./ci-cd/jenkins.md) [![GitHub Actions](https://img.shields.io/badge/Github%20Actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)](./git/git.md) [![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)](./terraform/00-basics/main.tf) [![Ansible](https://img.shields.io/badge/ansible-%23EE0000.svg?style=for-the-badge&logo=ansible&logoColor=white)](./ci-cd/ansible.md) |
+| **📊 Observability** | [![Grafana](https://img.shields.io/badge/grafana-%23F46800.svg?style=for-the-badge&logo=grafana&logoColor=white)](./monitoring/README.md) [![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=Prometheus&logoColor=white)](./monitoring/README.md) [![Loki](https://img.shields.io/badge/Loki-005AD4?style=for-the-badge&logo=grafana&logoColor=white)](./monitoring/README.md) [![CloudWatch](https://img.shields.io/badge/CloudWatch-%23FF9900.svg?style=for-the-badge&logo=amazon-cloudwatch&logoColor=white)](./aws/README.md) [![Kibana](https://img.shields.io/badge/Kibana-005571?style=for-the-badge&logo=kibana&logoColor=white)](./monitoring/README.md) [![Elasticsearch](https://img.shields.io/badge/Elasticsearch-005571?style=for-the-badge&logo=elasticsearch&logoColor=white)](./monitoring/README.md) |
+| **🗄️ Databases** | [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](./databases/postgresql.md) [![MySQL](https://img.shields.io/badge/mysql-%2300f.svg?style=for-the-badge&logo=mysql&logoColor=white)](./databases/postgresql.md) [![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white)](./databases/README.md) [![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white)](./databases/redis.md) [![ClickHouse](https://img.shields.io/badge/ClickHouse-FFCC00?style=for-the-badge&logo=clickhouse&logoColor=black)](./databases/clickhouse.md) |
+| **💻 Scripting** | [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](./scripting/python-for-devops.md) [![Shell Script](https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white)](./linux/day1-linux-basics.md) [![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](./linux/day1-linux-basics.md) |
+| **🤖 AI for Ops** | [![Claude AI](https://img.shields.io/badge/Claude%20AI-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](./ai-ops/ai-tools.md) [![ChatGPT](https://img.shields.io/badge/ChatGPT-74aa1c?style=for-the-badge&logo=openai&logoColor=white)](./ai-ops/ai-tools.md) [![Cursor](https://img.shields.io/badge/Cursor-000000?style=for-the-badge&logo=cursor&logoColor=white)](./ai-ops/ai-tools.md) |
 
 ---
 
@@ -43,23 +44,23 @@ This repository serves as a learning foundation. For production-grade implementa
 ## 🗺️ Learning Roadmap
 
 ### 📂 Phase 1: Fundamentals
-- [x] **[Linux](./linux/)**: Bash scripting, process management, and file systems.
-- [x] **[Networking](./networking/)**: OSI Model, TCP/IP, DNS, and Load Balancers.
-- [x] **[Git](./git/)**: Version control, branching strategies, and collaboration.
+- [x] **[Linux](./linux/day1-linux-basics.md)**: Bash scripting, process management, and file systems.
+- [x] **[Networking](./networking/day1-osi-model.md)**: OSI Model, TCP/IP, DNS, and Load Balancers.
+- [x] **[Git](./git/git.md)**: Version control, branching strategies, and collaboration.
 
 ### 📂 Phase 2: Cloud & Infrastructure
-- [x] **[AWS](./aws/)**: EC2, S3, IAM, VPC, and more.
-- [x] **[Terraform](./terraform/)**: Automating infrastructure with IaC.
-- [x] **[LocalStack](./localstack/)**: Developing and testing cloud apps locally.
+- [x] **[AWS](./aws/README.md)**: EC2, S3, IAM, VPC, and more.
+- [x] **[Terraform](./terraform/00-basics/main.tf)**: Automating infrastructure with IaC.
+- [x] **[LocalStack](./localstack/README.md)**: Developing and testing cloud apps locally.
 
 ### 📂 Phase 3: Containers & Orchestration
-- [x] **[Docker](./docker/)**: Building images, multi-stage builds, and Compose.
-- [x] **[Kubernetes](./kubernetes/)**: Pods, Deployments, Services, and Helm.
-- [x] **[RKE2 Cluster](./terraform/rke2-cluster/)**: Production-grade cluster setup.
+- [x] **[Docker](./docker/docker.md)**: Building images, multi-stage builds, and Compose.
+- [x] **[Kubernetes](./kubernetes/kubernats.md)**: Pods, Deployments, Services, and Helm.
+- [x] **[RKE2 Cluster](./terraform/rke2-cluster/main.tf)**: Production-grade cluster setup.
 
 ### 📂 Phase 4: Observability & Security
-- [x] **[Monitoring](./monitoring/)**: Prometheus, Grafana, and Loki.
-- [ ] **[Security](./security/)**: DevSecOps, Vault, and scanning tools.
+- [x] **[Monitoring](./monitoring/README.md)**: Prometheus, Grafana, and Loki.
+- [x] **[Security](./security/README.md)**: DevSecOps, Vault, and scanning tools.
 
 ---
 
