@@ -57,7 +57,7 @@ This roadmap is designed to transform you into a **Site Reliability Engineer (SR
     *   [ ] Relational: PostgreSQL & MySQL (High Availability).
     *   [ ] NoSQL: MongoDB & Redis (Caching).
     *   [ ] OLAP: ClickHouse (Big Data/Analytics).
-4.  **CI/CD Pipelines & Advanced IaC** (`/projects/01-docker-3tier-app/`)
+4.  **CI/CD Pipelines & Advanced IaC** (`/projects/01-docker-3tier-app/README.md`)
     *   [x] GitHub Actions (Automation).
     *   [ ] Jenkins (Enterprise CI/CD).
     *   [ ] Ansible (Configuration Management).
@@ -73,7 +73,7 @@ This roadmap is designed to transform you into a **Site Reliability Engineer (SR
 | Tier | Project Name | Skills Used |
 | :--- | :--- | :--- |
 | **Basic** | Static Website on S3/CloudFront | AWS, DNS, CDN |
-| **Mid** | Three-Tier App on Docker Compose | Docker, Networking, Nginx |
+| **Mid** | [Three-Tier App on Docker Compose](./projects/01-docker-3tier-app/README.md) | Docker, Networking, Nginx |
 | **SRE** | Production K8s Cluster with Monitoring | Terraform, EKS/RKE2, Prometheus, Helm |
 
 ---
