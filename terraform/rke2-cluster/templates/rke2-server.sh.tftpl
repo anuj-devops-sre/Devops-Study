@@ -1,0 +1,22 @@
+#!/bin/bash
+# RKE2 Server Install Script
+curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE="server" sh -
+systemctl enable rke2-server.service
+
+mkdir -p /etc/rancher/rke2/
+cat <<EOF > /etc/rancher/rke2/config.yaml
+token: ${rke2_token}
+%{ if !is_bootstrap ~}
+server: https://${lb_dns}:9345
+%{ endif ~}
+tls-san:
+  - ${lb_dns}
+etcd-s3: true
+etcd-s3-bucket: ${s3_bucket}
+etcd-s3-region: ${region}
+etcd-s3-endpoint: http://localstack:4566
+etcd-s3-access-key: test
+etcd-s3-secret-key: test
+EOF
+
+systemctl start rke2-server.service

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:3.8.1
+    container_name: localstack
+    ports:
+      - "4566:4566"        # LocalStack gateway
+      - "4571:4571"        # Legacy external service port
+    environment:
+      - DEBUG=1
+      - DISABLE_CORS_CHECKS=1
+      - LOCALSTACK_HOST=localhost
+      - SERVICES=s3,dynamodb,lambda,sqs,sns,ec2,iam,rds,cloudformation
+      # Remove UI env vars - they don't work in community edition
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: [ "CMD", "localstack", "status", "services" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
