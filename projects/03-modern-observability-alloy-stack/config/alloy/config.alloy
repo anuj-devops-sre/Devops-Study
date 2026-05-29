@@ -1,0 +1,28 @@
+// Grafana Alloy Configuration
+// This file demonstrates how to scrape metrics and collect logs
+
+// 1. METRICS COLLECTION (Prometheus)
+prometheus.scrape "node_exporter" {
+  targets = [{"__address__" = "node-exporter:9100"}]
+  forward_to = [prometheus.remote_write.local_prom.receiver]
+}
+
+prometheus.remote_write "local_prom" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+// 2. LOGS COLLECTION (Loki - Replaces Promtail)
+loki.source.file "system_logs" {
+  targets = [
+    { "__path__" = "/var/log/*.log", "job" = "host_logs" },
+  ]
+  forward_to = [loki.write.local_loki.receiver]
+}
+
+loki.write "local_loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

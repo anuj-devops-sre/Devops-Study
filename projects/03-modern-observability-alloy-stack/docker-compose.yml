@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    command: 
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--enable-feature=remote-write-receiver"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
+  alloy:
+    image: grafana/alloy:latest
+    volumes:
+      - ./config/alloy/config.alloy:/etc/alloy/config.alloy
+      - /var/log:/var/log
+    command: ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    depends_on:
+      - prometheus
+      - loki
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
