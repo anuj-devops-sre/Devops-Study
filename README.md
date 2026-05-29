@@ -16,17 +16,20 @@ High-quality, consolidated technical notes for easier learning.
 *   🌐 **[VPC Master Notes](./aws/VPC-SRE-MASTER-NOTES.md)**: Networking and Traffic Flow.
 *   📦 **[S3 Master Notes](./aws/S3-SRE-MASTER-NOTES.md)**: Storage and Lifecycle.
 *   🗄️ **[RDS Master Notes](./aws/RDS-SRE-MASTER-NOTES.md)**: Databases and High Availability.
+*   🌩️ **[Serverless SRE](./aws/SERVERLESS-SRE-MASTER-NOTES.md)**: AWS Lambda, API Gateway, and Async Monitoring.
 
-### ☸️ Kubernetes (K8s) SRE Depth
+### ☸️ Kubernetes (K8s) & Service Mesh
 *   🏗️ **[Workloads Master Notes](./kubernetes/K8S-WORKLOADS-MASTER-NOTES.md)**: Pods, Deployments, and StatefulSets.
 *   🌐 **[Networking Master Notes](./kubernetes/K8S-NETWORKING-MASTER-NOTES.md)**: Services, Ingress, and Policies.
 *   📈 **[Scaling & Reliability](./kubernetes/K8S-SCALING-RELIABILITY-MASTER-NOTES.md)**: HPA, Karpenter, and Probes.
 *   🔐 **[Security & RBAC](./kubernetes/K8S-SECURITY-RBAC-MASTER-NOTES.md)**: RBAC, IRSA, and Secret Management.
+*   🕸️ **[Service Mesh (Istio)](./kubernetes/SERVICE-MESH-ISTIO-MASTER-NOTES.md)**: mTLS, Traffic Splitting, and Observability.
 
 ### 🐳 Containers & Automation
 *   🐳 **[Docker & Container Mastery](./docker/container-mastery.md)**: Optimization and Security.
 *   🏗️ **[Terraform Mastery](./terraform/terraform-mastery.md)**: Modules, Remote State, and Locking.
-*   🔄 **[CI/CD & Automation](./ci-cd/cicd-mastery.md)**: Jenkins, GitHub Actions, and GitOps.
+*   🔄 **[CI/CD & GitOps](./ci-cd/GITOPS-ARGOCD-MASTER-NOTES.md)**: **ArgoCD**, Jenkins, and GitHub Actions.
+*   🐍 **[Python for SRE](./scripting/PYTHON-SRE-AUTOMATION-MASTER-NOTES.md)**: Boto3 Automation and CLI Tools.
 
 ### 📊 Observability & Reliability
 *   📈 **[Observability Master Guide](./monitoring/OBSERVABILITY-SRE-MASTER-NOTES.md)**: Prometheus, Grafana, and Loki.
