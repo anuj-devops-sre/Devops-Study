@@ -38,6 +38,7 @@ This repository serves as a learning foundation. For production-grade implementa
 *   🔄 **[Jenkins CI/CD Pipelines](https://github.com/anuj-devops-sre/jenkins-cicd-pipeline)**: End-to-end automation from code to ECR/EKS.
 *   📈 **[Advanced Observability](https://github.com/anuj-devops-sre/grafana-prometheus-loki)**: Full-stack monitoring with Grafana, Prometheus, and Loki.
 *   💰 **[AWS Cost Optimization](https://github.com/anuj-devops-sre/aws-cost-optimization)**: Practical scripts for reducing cloud spend.
+*   📸 **[Proof of Work (Screenshots)](./screenshots/README.md)**: Visual evidence of labs and deployments.
 
 ---
 
