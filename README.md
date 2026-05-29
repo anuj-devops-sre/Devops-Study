@@ -17,18 +17,21 @@ High-quality, consolidated technical notes for easier learning.
 *   📦 **[S3 Master Notes](./aws/S3-SRE-MASTER-NOTES.md)**: Storage and Lifecycle.
 *   🗄️ **[RDS Master Notes](./aws/RDS-SRE-MASTER-NOTES.md)**: Databases and High Availability.
 
-### ☸️ Orchestration & Containers
-*   ☸️ **[Kubernetes SRE Master Guide](./kubernetes/K8S-SRE-MASTER-NOTES.md)**: Workloads, Scaling, and Security.
-*   🐳 **[Docker & Container Mastery](./docker/container-mastery.md)**: Optimization and Security.
+### ☸️ Kubernetes (K8s) SRE Depth
+*   🏗️ **[Workloads Master Notes](./kubernetes/K8S-WORKLOADS-MASTER-NOTES.md)**: Pods, Deployments, and StatefulSets.
+*   🌐 **[Networking Master Notes](./kubernetes/K8S-NETWORKING-MASTER-NOTES.md)**: Services, Ingress, and Policies.
+*   📈 **[Scaling & Reliability](./kubernetes/K8S-SCALING-RELIABILITY-MASTER-NOTES.md)**: HPA, Karpenter, and Probes.
+*   🔐 **[Security & RBAC](./kubernetes/K8S-SECURITY-RBAC-MASTER-NOTES.md)**: RBAC, IRSA, and Secret Management.
 
-### 🏗️ Infrastructure & Automation
+### 🐳 Containers & Automation
+*   🐳 **[Docker & Container Mastery](./docker/container-mastery.md)**: Optimization and Security.
 *   🏗️ **[Terraform Mastery](./terraform/terraform-mastery.md)**: Modules, Remote State, and Locking.
 *   🔄 **[CI/CD & Automation](./ci-cd/cicd-mastery.md)**: Jenkins, GitHub Actions, and GitOps.
-*   📈 **[Observability Master Guide](./monitoring/OBSERVABILITY-SRE-MASTER-NOTES.md)**: Prometheus, Grafana, and Loki.
 
-### 🛡️ Reliability & Security
+### 📊 Observability & Reliability
+*   📈 **[Observability Master Guide](./monitoring/OBSERVABILITY-SRE-MASTER-NOTES.md)**: Prometheus, Grafana, and Loki.
 *   🛡️ **[DevSecOps Mastery](./security/security-mastery.md)**: Vault, IaC Scanning, and Runtime Security.
-*   🤝 **[SRE Culture & Incidents](./SRE-CULTURE-MASTERI.md)**: SLOs, Post-Mortems, and Error Budgets.
+*   🤝 **[SRE Culture & Incidents](./SRE-CULTURE-MASTERI.md)**: SLOs, Error Budgets, and Post-Mortems.
 
 ---
 
@@ -36,7 +39,7 @@ High-quality, consolidated technical notes for easier learning.
 
 | Project | Tech Stack | Impact |
 |:---|:---|:---|
-| ☸️ **[EKS Cluster IaC](./terraform/rke2-cluster)** | \`Terraform\` \`EKS\` \`IRSA\` | Production-ready cluster automation with Karpenter. |
+| ☸️ **[EKS Cluster IaC](./terraform/rke2-cluster)** | \`Terraform\` \`EKS\` \`IRSA\` | Production-grade cluster automation with Karpenter. |
 | 🐳 **[3-Tier App Deployment](./projects/01-docker-3tier-app)** | \`Docker\` \`Nginx\` \`PostgreSQL\` | Highly available containerized architecture. |
 | 📜 **[Centralized Logging](./projects/02-cloudwatch-to-elk-fluentd)** | \`Fluentd\` \`CloudWatch\` \`ELK\` | AWS log shipping for unified troubleshooting. |
 | 📈 **[Modern LGTM Stack](./projects/03-modern-observability-alloy-stack)** | \`Grafana Alloy\` \`Loki\` \`Prometheus\` | Advanced telemetry with the unified Alloy agent. |
@@ -48,7 +51,7 @@ High-quality, consolidated technical notes for easier learning.
 *Platform Engineer @ Cashify*  
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/anuj-kumar-dwivedi/)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/anuj-devops-sre)
-[![Profile](https://img.shields.io/badge/Profile-Readme-green?style=flat&logo=github&logoColor=white)](https://github.com/anuj-devops-sre/anuj-devops-sre/blob/main/README.md)
+[![Profile](https://github.com/anuj-devops-sre/anuj-devops-sre/blob/main/README.md)](https://github.com/anuj-devops-sre/anuj-devops-sre/blob/main/README.md)
 
 ---
 <p align="center">
