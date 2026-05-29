@@ -16,6 +16,7 @@ High-quality, consolidated technical notes for easier learning.
 *   🌐 **[VPC Master Notes](./aws/VPC-SRE-MASTER-NOTES.md)**: Networking and Traffic Flow.
 *   📦 **[S3 Master Notes](./aws/S3-SRE-MASTER-NOTES.md)**: Storage and Lifecycle.
 *   🗄️ **[RDS Master Notes](./aws/RDS-SRE-MASTER-NOTES.md)**: Databases and High Availability.
+*   🌍 **[Global Infra & DR](./aws/GLOBAL-INFRA-DR-MASTER-NOTES.md)**: Route53, CloudFront, and Disaster Recovery.
 *   🌩️ **[Serverless SRE](./aws/SERVERLESS-SRE-MASTER-NOTES.md)**: AWS Lambda, API Gateway, and Async Monitoring.
 
 ### ☸️ Kubernetes (K8s) & Service Mesh
@@ -28,11 +29,13 @@ High-quality, consolidated technical notes for easier learning.
 ### 🐳 Containers & Automation
 *   🐳 **[Docker & Container Mastery](./docker/container-mastery.md)**: Optimization and Security.
 *   🏗️ **[Terraform Mastery](./terraform/terraform-mastery.md)**: Modules, Remote State, and Locking.
+*   📜 **[Ansible Master Guide](./ci-cd/ANSIBLE-SRE-MASTER-NOTES.md)**: Fleet Management and OS Hardening.
 *   🔄 **[CI/CD & GitOps](./ci-cd/GITOPS-ARGOCD-MASTER-NOTES.md)**: **ArgoCD**, Jenkins, and GitHub Actions.
 *   🐍 **[Python for SRE](./scripting/PYTHON-SRE-AUTOMATION-MASTER-NOTES.md)**: Boto3 Automation and CLI Tools.
 
-### 📊 Observability & Reliability
+### 📊 Observability & Cost
 *   📈 **[Observability Master Guide](./monitoring/OBSERVABILITY-SRE-MASTER-NOTES.md)**: Prometheus, Grafana, and Loki.
+*   💰 **[FinOps & Cost Guide](./aws/FINOPS-COST-SRE-MASTER-NOTES.md)**: AWS Cost Management and Savings.
 *   🛡️ **[DevSecOps Mastery](./security/security-mastery.md)**: Vault, IaC Scanning, and Runtime Security.
 *   🤝 **[SRE Culture & Incidents](./SRE-CULTURE-MASTERI.md)**: SLOs, Error Budgets, and Post-Mortems.
 
