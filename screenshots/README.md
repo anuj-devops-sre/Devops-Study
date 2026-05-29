@@ -8,6 +8,7 @@ This directory contains visual evidence of labs, deployments, and successful con
 - **AWS / Cloud Infrastructure**: [![AWS Proof](./image.png)](../aws/README.md)
 - **Kubernetes / Containers**: [![K8s Proof](./image-1.png)](../kubernetes/kubernats.md)
 - **Monitoring & Observability**: [![Monitoring Proof](./image-2.png)](../monitoring/README.md)
+- **Lab Proof 4**: ![Proof 4](./image-3.png)
 
 ---
 
@@ -20,4 +21,5 @@ This directory contains visual evidence of labs, deployments, and successful con
         ![alt text](image-1.png)
     ](image.png)
     ![alt text](image-2.png)
+    ![alt text](image-3.png)
     ```
