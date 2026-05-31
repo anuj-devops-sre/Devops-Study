@@ -1,0 +1,1392 @@
+# Jenkins Pipeline — Complete Setup Guide
+### Installation → Configuration → Pipelines → Best Practices
+
+---
+
+## What is Jenkins?
+
+**Jenkins** = Java-based open-source automation server. CI/CD ke liye use hota hai.
+
+```
+Developer → git push → Jenkins detects → Build → Test → Docker build
+→ Push to ECR → Deploy to K8s → Notify team
+```
+
+**Jenkins ke 2 types ke pipelines:**
+- **Freestyle Job** — GUI-based, click karke configure karo (old way, avoid karo)
+- **Pipeline (Jenkinsfile)** — code mein likho, Git mein rakho (modern, recommended)
+
+---
+
+# PART 1 — Jenkins Installation
+
+---
+
+## Option A — Docker par install (fastest, local/dev)
+
+```bash
+# Jenkins official image run karo
+docker run -d \
+  --name jenkins \
+  -p 8080:8080 \
+  -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  jenkins/jenkins:lts
+
+# Initial admin password lao
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+> 💡 `/var/run/docker.sock` mount karna zaroori hai taaki Jenkins andar se Docker commands chala sake.
+
+---
+
+## Option B — EC2 (Ubuntu) par install (production)
+
+```bash
+# Step 1: Java install karo (Jenkins ko Java chahiye)
+sudo apt update
+sudo apt install -y fontconfig openjdk-17-jre
+java -version   # verify
+
+# Step 2: Jenkins repo add karo
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
+  https://pkg.jenkins.io/debian-stable binary/ | \
+  sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+# Step 3: Install Jenkins
+sudo apt update
+sudo apt install -y jenkins
+
+# Step 4: Start and enable
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+sudo systemctl status jenkins
+
+# Step 5: Initial password
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+
+Access karo: `http://<EC2-IP>:8080`
+
+**EC2 Security Group mein port 8080 open karo (inbound rule add karo).**
+
+---
+
+## Option C — Kubernetes (Helm) par install
+
+```bash
+# Jenkins Helm chart install
+helm repo add jenkins https://charts.jenkins.io
+helm repo update
+
+# values.yaml customize karo (optional)
+cat > jenkins-values.yaml << EOF
+controller:
+  serviceType: LoadBalancer
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - docker-workflow:latest
+    - aws-credentials:latest
+persistence:
+  enabled: true
+  size: 20Gi
+EOF
+
+helm install jenkins jenkins/jenkins \
+  --namespace jenkins \
+  --create-namespace \
+  -f jenkins-values.yaml
+
+# Admin password lao
+kubectl exec -n jenkins -it \
+  $(kubectl get pod -n jenkins -l app.kubernetes.io/name=jenkins -o name) \
+  -- /bin/cat /run/secrets/additional/chart-admin-password
+```
+
+---
+
+## Initial Setup (First Time)
+
+1. Browser mein `http://<IP>:8080` open karo
+2. Initial password paste karo
+3. **"Install suggested plugins"** click karo
+4. Admin user banao
+5. Jenkins URL set karo
+
+---
+
+# PART 2 — Essential Plugins
+
+---
+
+Jenkins mein ye plugins zaroori hain. **Manage Jenkins → Plugins → Available** se install karo.
+
+| Plugin | Kyu Chahiye |
+|--------|------------|
+| **Pipeline** | Jenkinsfile support |
+| **Git** | GitHub/GitLab integration |
+| **Docker Pipeline** | Docker commands in pipeline |
+| **AWS Credentials** | AWS keys securely store karo |
+| **Kubernetes** | K8s agents for build |
+| **Blue Ocean** | Better pipeline UI |
+| **Slack Notification** | Build alerts on Slack |
+| **GitHub Integration** | PR triggers, webhooks |
+| **Credentials Binding** | Secrets in pipeline |
+| **Workspace Cleanup** | Clean workspace after build |
+| **AnsiColor** | Colored console output |
+| **Timestamper** | Timestamps in logs |
+
+```
+Install path: Manage Jenkins → Plugins → Available plugins → Search → Install
+Restart after: sudo systemctl restart jenkins
+```
+
+---
+
+# PART 3 — Credentials Setup
+
+---
+
+Secrets ko Jenkins mein securely store karo — **kabhi bhi Jenkinsfile mein hardcode mat karo.**
+
+**Path:** Manage Jenkins → Credentials → System → Global credentials → Add Credentials
+
+### AWS Credentials
+```
+Kind     : AWS Credentials
+ID       : aws-credentials        ← ye ID Jenkinsfile mein use hogi
+Access Key ID     : <your key>
+Secret Access Key : <your secret>
+```
+
+### Docker / ECR Credentials
+```
+Kind     : Username with password
+ID       : ecr-credentials
+Username : AWS
+Password : <ecr-login-token>
+```
+
+### GitHub Token
+```
+Kind     : Secret text
+ID       : github-token
+Secret   : <your-github-pat>
+```
+
+### SSH Key (server access ke liye)
+```
+Kind     : SSH Username with private key
+ID       : ec2-ssh-key
+Username : ubuntu
+Private Key: <paste .pem content>
+```
+
+### Kubernetes Config
+```
+Kind     : Secret file
+ID       : kubeconfig
+File     : <upload kubeconfig file>
+```
+
+---
+
+# PART 4 — Jenkinsfile — Complete Examples
+
+---
+
+## Basic Pipeline Structure
+
+```groovy
+pipeline {
+    agent any          // kahan run karo — any available agent
+
+    environment {
+        // variables jo poore pipeline mein use honge
+        APP_NAME = "my-app"
+        ECR_REGISTRY = "123456789.dkr.ecr.ap-south-1.amazonaws.com"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"   // auto-increment build number
+        AWS_REGION = "ap-south-1"
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')   // 30 min se zyada chalega toh kill
+        disableConcurrentBuilds()             // ek time par ek hi build
+        buildDiscarder(logRotator(numToKeepStr: '10'))  // sirf 10 builds rakho
+    }
+
+    stages {
+        stage('Stage Name') {
+            steps {
+                // yahan commands likhte hain
+            }
+        }
+    }
+
+    post {
+        success { /* success par kya karo */ }
+        failure { /* failure par kya karo */ }
+        always  { /* hamesha karo (cleanup) */ }
+    }
+}
+```
+
+---
+
+## Example 1: Node.js App — Build + Test + Docker + ECR + K8s Deploy
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME    = "my-app"
+        ECR_REGISTRY = "123456789.dkr.ecr.ap-south-1.amazonaws.com"
+        ECR_REPO    = "${ECR_REGISTRY}/${APP_NAME}"
+        IMAGE_TAG   = "${env.GIT_COMMIT[0..7]}"   // first 8 chars of git commit hash
+        AWS_REGION  = "ap-south-1"
+        K8S_NAMESPACE = "production"
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                // code already checkout ho jaata hai automatically
+                echo "Branch: ${env.BRANCH_NAME}"
+                echo "Commit: ${env.GIT_COMMIT}"
+                sh 'git log --oneline -5'   // last 5 commits dekho
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm ci'   // npm install se better — lockfile strictly follow karta hai
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'npm test'
+            }
+            post {
+                always {
+                    // test results publish karo (JUnit format)
+                    junit allowEmptyResults: true, testResults: 'test-results/*.xml'
+                }
+            }
+        }
+
+        stage('Code Quality') {
+            steps {
+                sh 'npm run lint'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${ECR_REPO}:${IMAGE_TAG}")
+                }
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} | \
+                        docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+                        docker push ${ECR_REPO}:${IMAGE_TAG}
+
+                        # latest tag bhi push karo
+                        docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REPO}:latest
+                        docker push ${ECR_REPO}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            when {
+                branch 'main'    // sirf main branch par deploy karo
+            }
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG}
+
+                        # Helm se deploy
+                        helm upgrade --install ${APP_NAME} ./helm-chart \
+                          --namespace ${K8S_NAMESPACE} \
+                          --set image.repository=${ECR_REPO} \
+                          --set image.tag=${IMAGE_TAG} \
+                          --wait \
+                          --timeout 5m
+
+                        # Verify rollout
+                        kubectl rollout status deployment/${APP_NAME} \
+                          -n ${K8S_NAMESPACE} \
+                          --timeout=5m
+                    """
+                }
+            }
+        }
+
+        stage('Smoke Test') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    // deploy ke baad basic health check
+                    def response = sh(
+                        script: "curl -s -o /dev/null -w '%{http_code}' http://my-app.mycompany.com/health",
+                        returnStdout: true
+                    ).trim()
+
+                    if (response != '200') {
+                        error "Smoke test failed! HTTP status: ${response}"
+                    }
+                    echo "Smoke test passed! Status: ${response}"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Build ${env.BUILD_NUMBER} deployed successfully!"
+            slackSend(
+                color: 'good',
+                message: "✅ *${APP_NAME}* deployed successfully!\nBranch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_NUMBER}\nCommit: ${IMAGE_TAG}"
+            )
+        }
+        failure {
+            echo "❌ Build ${env.BUILD_NUMBER} failed!"
+            slackSend(
+                color: 'danger',
+                message: "❌ *${APP_NAME}* build FAILED!\nBranch: ${env.BRANCH_NAME}\nBuild: #${env.BUILD_NUMBER}\nCheck: ${env.BUILD_URL}"
+            )
+        }
+        always {
+            // workspace clean karo — disk space bachao
+            cleanWs()
+            // docker images clean karo
+            sh 'docker image prune -f'
+        }
+    }
+}
+```
+
+---
+
+## Example 2: Multi-Environment Pipeline (Dev → Staging → Prod)
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME    = "my-app"
+        ECR_REPO    = "123456789.dkr.ecr.ap-south-1.amazonaws.com/my-app"
+        IMAGE_TAG   = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+
+        stage('Build & Test') {
+            steps {
+                sh 'npm ci && npm test'
+                sh """
+                    docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+                    docker push ${ECR_REPO}:${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Deploy to Dev') {
+            steps {
+                sh """
+                    helm upgrade --install ${APP_NAME} ./helm-chart \
+                      -f values-dev.yaml \
+                      --set image.tag=${IMAGE_TAG} \
+                      --namespace dev
+                """
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh """
+                    helm upgrade --install ${APP_NAME} ./helm-chart \
+                      -f values-staging.yaml \
+                      --set image.tag=${IMAGE_TAG} \
+                      --namespace staging
+                """
+            }
+        }
+
+        stage('Approval for Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                // Manual approval gate — koi click karega tab hi prod deploy hoga
+                input message: "Deploy to Production?",
+                      ok: "Yes, Deploy!",
+                      submitter: "admin,lead-dev"   // sirf ye log approve kar sakte hain
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh """
+                    helm upgrade --install ${APP_NAME} ./helm-chart \
+                      -f values-prod.yaml \
+                      --set image.tag=${IMAGE_TAG} \
+                      --namespace production
+                """
+            }
+        }
+    }
+}
+```
+
+---
+
+## Example 3: Parallel Stages (Speed up build)
+
+```groovy
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+                sh 'docker build -t my-app .'
+            }
+        }
+
+        // Test aur Lint parallel mein chalao — time bachta hai
+        stage('Test & Lint') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        sh 'npm test'
+                    }
+                }
+                stage('Lint') {
+                    steps {
+                        sh 'npm run lint'
+                    }
+                }
+                stage('Security Scan') {
+                    steps {
+                        sh 'trivy image my-app:latest --severity HIGH,CRITICAL'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh 'helm upgrade --install my-app ./chart'
+            }
+        }
+    }
+}
+```
+
+---
+
+## Example 4: Terraform Pipeline
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        TF_DIR     = "terraform/eks"
+        AWS_REGION = "ap-south-1"
+    }
+
+    parameters {
+        choice(
+            name: 'ACTION',
+            choices: ['plan', 'apply', 'destroy'],
+            description: 'Terraform action to perform'
+        )
+        string(
+            name: 'ENV',
+            defaultValue: 'staging',
+            description: 'Environment (staging/production)'
+        )
+    }
+
+    stages {
+        stage('Terraform Init') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    dir(TF_DIR) {
+                        sh 'terraform init -reconfigure'
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    dir(TF_DIR) {
+                        sh """
+                            terraform plan \
+                              -var-file="envs/${params.ENV}.tfvars" \
+                              -out=tfplan
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Approval') {
+            when {
+                expression { params.ACTION == 'apply' || params.ACTION == 'destroy' }
+            }
+            steps {
+                input message: "Run terraform ${params.ACTION} on ${params.ENV}?",
+                      ok: "Confirm"
+            }
+        }
+
+        stage('Terraform Apply/Destroy') {
+            when {
+                expression { params.ACTION == 'apply' || params.ACTION == 'destroy' }
+            }
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    dir(TF_DIR) {
+                        script {
+                            if (params.ACTION == 'apply') {
+                                sh 'terraform apply tfplan'
+                            } else {
+                                sh "terraform destroy -var-file=envs/${params.ENV}.tfvars -auto-approve"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+---
+
+# PART 5 — Webhook Setup (Auto-trigger on Git Push)
+
+---
+
+### GitHub → Jenkins Webhook
+
+**Step 1: Jenkins mein GitHub plugin install karo**
+
+**Step 2: GitHub repo settings mein webhook add karo**
+```
+GitHub Repo → Settings → Webhooks → Add webhook
+Payload URL : http://<JENKINS-URL>:8080/github-webhook/
+Content type: application/json
+Events      : Just the push event (ya PR events bhi select karo)
+```
+
+**Step 3: Jenkins job mein trigger enable karo**
+```
+Job → Configure → Build Triggers
+✅ GitHub hook trigger for GITScm polling
+```
+
+**Step 4: Jenkins Security mein webhook allow karo**
+```
+Manage Jenkins → Security → CSRF Protection
+✅ Enable proxy compatibility
+```
+
+Ab jab bhi `git push` hoga → GitHub → Jenkins webhook → Build automatically start.
+
+---
+
+### Multibranch Pipeline (recommended)
+
+Automatically har branch par pipeline run karo bina manually job banaye.
+
+```
+Jenkins → New Item → Multibranch Pipeline
+
+Branch Sources:
+  Git → https://github.com/myorg/my-app.git
+  Credentials: github-token
+
+Build Configuration:
+  Mode: by Jenkinsfile
+  Script Path: Jenkinsfile   ← repo ke root mein hona chahiye
+
+Scan Multibranch Pipeline Triggers:
+  ✅ Periodically if not otherwise run: 1 minute
+```
+
+Ab:
+- Har branch par Jenkinsfile dhundha jayega
+- Nayi branch banao → automatically job create hogi
+- Branch delete karo → job bhi delete hogi
+
+---
+
+# PART 6 — Jenkins Agents (Distributed Builds)
+
+---
+
+### Why Agents?
+
+Jenkins master par builds nahi chalane chahiye — heavy load aata hai. Agents alag machines/pods hote hain jo actual build karte hain.
+
+### Static Agent (EC2)
+
+**Step 1: Agent EC2 par Java install karo**
+```bash
+sudo apt install -y openjdk-17-jre
+```
+
+**Step 2: Jenkins mein agent add karo**
+```
+Manage Jenkins → Nodes → New Node
+Name           : build-agent-1
+Type           : Permanent Agent
+Remote root dir: /home/jenkins
+Launch method  : Launch agents via SSH
+Host           : <agent-EC2-IP>
+Credentials    : ec2-ssh-key
+```
+
+### Kubernetes Agent (dynamic — recommended)
+
+Har build ke liye ek pod spin up hota hai, build ke baad delete ho jaata hai. Clean aur scalable.
+
+```groovy
+// Jenkinsfile with K8s agent
+pipeline {
+    agent {
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: node
+    image: node:20-alpine
+    command: ['sleep', '9999']
+  - name: docker
+    image: docker:24-dind
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+"""
+        }
+    }
+
+    stages {
+        stage('Test') {
+            steps {
+                container('node') {
+                    sh 'npm test'
+                }
+            }
+        }
+        stage('Build Docker') {
+            steps {
+                container('docker') {
+                    sh 'docker build -t my-app .'
+                }
+            }
+        }
+    }
+}
+```
+
+---
+
+# PART 7 — Environment Variables & Parameters
+
+---
+
+### Built-in Environment Variables
+
+```groovy
+env.BUILD_NUMBER      // 42
+env.BUILD_URL         // http://jenkins:8080/job/my-app/42/
+env.JOB_NAME          // my-app
+env.BRANCH_NAME       // main
+env.GIT_COMMIT        // full commit hash
+env.GIT_BRANCH        // origin/main
+env.WORKSPACE         // /var/jenkins/workspace/my-app
+```
+
+### Custom Parameters (user input at build time)
+
+```groovy
+pipeline {
+    parameters {
+        string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Docker image tag')
+        choice(name: 'ENV', choices: ['dev', 'staging', 'prod'], description: 'Deploy environment')
+        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run tests?')
+        password(name: 'DB_PASS', defaultValue: '', description: 'DB password')
+    }
+
+    stages {
+        stage('Deploy') {
+            steps {
+                echo "Deploying ${params.IMAGE_TAG} to ${params.ENV}"
+                sh """
+                    helm upgrade --install my-app ./chart \
+                      --set image.tag=${params.IMAGE_TAG} \
+                      --namespace ${params.ENV}
+                """
+            }
+        }
+    }
+}
+```
+
+---
+
+# PART 8 — Shared Libraries (Code Reuse)
+
+---
+
+Agar multiple pipelines mein same code likhte ho (ECR login, Slack notify, etc.) → Shared Library mein rakh do.
+
+### Setup
+
+```
+GitHub repo structure:
+  jenkins-shared-library/
+  └── vars/
+      ├── ecrLogin.groovy
+      ├── helmDeploy.groovy
+      └── slackNotify.groovy
+```
+
+```groovy
+// vars/ecrLogin.groovy
+def call(String region, String registry) {
+    sh """
+        aws ecr get-login-password --region ${region} | \
+        docker login --username AWS --password-stdin ${registry}
+    """
+}
+```
+
+```groovy
+// vars/slackNotify.groovy
+def call(String status, String appName, String buildNum) {
+    def color = status == 'SUCCESS' ? 'good' : 'danger'
+    def emoji = status == 'SUCCESS' ? '✅' : '❌'
+    slackSend(
+        color: color,
+        message: "${emoji} *${appName}* build #${buildNum}: ${status}"
+    )
+}
+```
+
+**Jenkins mein register karo:**
+```
+Manage Jenkins → System → Global Pipeline Libraries
+Name    : my-shared-lib
+Default version: main
+Source  : Git → https://github.com/myorg/jenkins-shared-library.git
+```
+
+**Use karo Jenkinsfile mein:**
+```groovy
+@Library('my-shared-lib') _
+
+pipeline {
+    stages {
+        stage('Push to ECR') {
+            steps {
+                ecrLogin('ap-south-1', '123456789.dkr.ecr.ap-south-1.amazonaws.com')
+                sh 'docker push my-app:latest'
+            }
+        }
+    }
+    post {
+        always {
+            slackNotify(currentBuild.result, 'my-app', env.BUILD_NUMBER)
+        }
+    }
+}
+```
+
+---
+
+# PART 9 — Security Best Practices
+
+---
+
+```
+✅ Credentials kabhi Jenkinsfile mein hardcode mat karo
+✅ withCredentials block use karo secrets ke liye
+✅ Jenkins master par builds mat chalao — agents use karo
+✅ RBAC setup karo — har developer ko full admin access mat do
+✅ Plugins regularly update karo
+✅ Jenkins URL HTTPS par rakho (SSL certificate lagao)
+✅ Build logs mein secrets print nahi hone chahiye
+✅ Workspace cleanup karo post block mein
+✅ Old builds regularly delete karo (logRotator)
+```
+
+### RBAC in Jenkins
+```
+Manage Jenkins → Security → Authorization
+  → Role-Based Strategy (Role Strategy Plugin chahiye)
+
+Roles:
+  admin  → full access
+  dev    → build trigger, view logs
+  viewer → read-only
+```
+
+---
+
+# PART 10 — Troubleshooting Jenkins
+
+---
+
+| Problem | Fix |
+|---------|-----|
+| `Permission denied` running docker | Jenkins user ko docker group mein add karo: `sudo usermod -aG docker jenkins` |
+| `git: authentication failed` | GitHub credentials Jenkins mein update karo |
+| Build stuck / hanging | Timeout option add karo: `timeout(time: 30, unit: 'MINUTES')` |
+| `No space left on device` | `docker system prune -f` + old workspaces clean karo |
+| Webhook not triggering | Jenkins URL publicly accessible hai? Firewall port 8080 open hai? |
+| `CSRF missing` | Manage Jenkins → Security → CSRF → Enable proxy compatibility |
+| Plugin conflict | Safe restart karo: `http://jenkins:8080/safeRestart` |
+| Pipeline not finding Jenkinsfile | Repo root mein `Jenkinsfile` (capital J) hona chahiye |
+| OOMKilled Jenkins pod (K8s) | memory limits badhaao values.yaml mein |
+| Slave agent not connecting | SSH credentials check karo, Java version match honi chahiye |
+
+### Useful Jenkins URLs
+```
+http://jenkins:8080/restart           # restart
+http://jenkins:8080/safeRestart       # wait for builds to finish then restart
+http://jenkins:8080/systemInfo        # system info
+http://jenkins:8080/log/all           # all logs
+http://jenkins:8080/script            # Groovy script console (admin only)
+```
+
+### Groovy Console — Emergency fixes
+```groovy
+// Stuck build cancel karo
+Jenkins.instance.queue.items.each { it.cancel() }
+
+// All running builds abort karo
+Jenkins.instance.items.each { job ->
+  job.builds.each { build ->
+    if (build.isBuilding()) build.doStop()
+  }
+}
+```
+
+---
+
+# PART 11 — Complete Real-World Pipeline
+
+---
+
+Full production-grade pipeline — build se leke deploy tak sab kuch:
+
+```groovy
+@Library('my-shared-lib') _
+
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME     = "my-app"
+        ECR_REGISTRY = "123456789.dkr.ecr.ap-south-1.amazonaws.com"
+        ECR_REPO     = "${ECR_REGISTRY}/${APP_NAME}"
+        IMAGE_TAG    = "${env.GIT_COMMIT[0..7]}"
+        AWS_REGION   = "ap-south-1"
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        ansiColor('xterm')
+        timestamps()
+    }
+
+    stages {
+        stage('🔍 Checkout') {
+            steps {
+                checkout scm
+                sh 'git log --oneline -3'
+            }
+        }
+
+        stage('📦 Install') {
+            steps {
+                sh 'npm ci'
+            }
+        }
+
+        stage('🧪 Test + Lint + Scan') {
+            parallel {
+                stage('Unit Tests') {
+                    steps { sh 'npm test' }
+                }
+                stage('Lint') {
+                    steps { sh 'npm run lint' }
+                }
+                stage('Security Scan') {
+                    steps {
+                        sh """
+                            docker build -t ${ECR_REPO}:scan-${IMAGE_TAG} .
+                            trivy image --severity HIGH,CRITICAL \
+                              --exit-code 1 \
+                              ${ECR_REPO}:scan-${IMAGE_TAG} || true
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('🐳 Build Image') {
+            steps {
+                sh "docker build -t ${ECR_REPO}:${IMAGE_TAG} ."
+            }
+        }
+
+        stage('📤 Push to ECR') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} | \
+                        docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                        docker push ${ECR_REPO}:${IMAGE_TAG}
+                        docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REPO}:latest
+                        docker push ${ECR_REPO}:latest
+                    """
+                }
+            }
+        }
+
+        stage('🚀 Deploy Staging') {
+            when { branch 'main' }
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh """
+                        helm upgrade --install ${APP_NAME} ./helm-chart \
+                          -f values-staging.yaml \
+                          --set image.tag=${IMAGE_TAG} \
+                          --namespace staging --wait
+                    """
+                }
+            }
+        }
+
+        stage('✅ Approve Production') {
+            when { branch 'main' }
+            steps {
+                timeout(time: 1, unit: 'HOURS') {
+                    input message: "Deploy ${IMAGE_TAG} to Production?", ok: "Deploy!"
+                }
+            }
+        }
+
+        stage('🏁 Deploy Production') {
+            when { branch 'main' }
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh """
+                        helm upgrade --install ${APP_NAME} ./helm-chart \
+                          -f values-prod.yaml \
+                          --set image.tag=${IMAGE_TAG} \
+                          --namespace production --wait
+                        kubectl rollout status deployment/${APP_NAME} \
+                          -n production --timeout=5m
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            slackNotify('SUCCESS', env.APP_NAME, env.BUILD_NUMBER)
+        }
+        failure {
+            slackNotify('FAILURE', env.APP_NAME, env.BUILD_NUMBER)
+        }
+        always {
+            cleanWs()
+            sh 'docker image prune -f'
+        }
+    }
+}
+```
+
+---
+
+# Quick Reference
+
+```
+Jenkins install   → Docker / EC2 / Helm
+Default port      → 8080 (UI), 50000 (agents)
+Jenkinsfile path  → repo root, filename = Jenkinsfile
+Credentials       → Manage Jenkins → Credentials → Global
+Plugins           → Manage Jenkins → Plugins
+Logs              → http://jenkins:8080/log/all
+Safe restart      → http://jenkins:8080/safeRestart
+Script console    → http://jenkins:8080/script
+
+Pipeline types:
+  Declarative  → pipeline { } block (recommended, easier)
+  Scripted     → node { } block (advanced, more flexible)
+
+Key stages order:
+  Checkout → Install → Test → Build → Push → Deploy → Verify
+
+Security rules:
+  Never hardcode secrets
+  Use withCredentials block
+  Run builds on agents, not master
+  Cleanup after every build
+```
+
+---
+
+*Stack: Jenkins LTS | Docker | Helm | AWS ECR | Kubernetes | Slack*
+*Document covers: Installation → Plugins → Credentials → Pipelines → Agents → Security → Troubleshooting*
+
+---
+
+---
+
+# 🎯 PART 12 — Interview Answer: Code se Browser tak Complete Deployment
+
+> Ye section specifically interview ke liye hai.
+> Jab interviewer pooche: *"Ek naya microservice production mein deploy karna ho — code se lekar user ke browser tak — pura process explain karo."*
+> Ye answer 3-4 minutes ka hona chahiye.
+
+---
+
+## Complete Flow — Ek Diagram mein
+
+```
+GitHub (code push)
+    │ webhook trigger
+    ▼
+Jenkins Pipeline
+    │ build → test → docker build → ECR push
+    ▼
+ECR (image stored with git commit tag)
+    │ helm deploy
+    ▼
+EKS (Elastic Kubernetes Service) Pods (Running in K8s)
+    │ ClusterIP Service
+    ▼
+Ingress Resource (K8s)
+    │ AWS Load Balancer Controller reads this
+    ▼
+AWS ALB — Application Load Balancer (HTTPS — HyperText Transfer Protocol Secure :443, ACM — AWS Certificate Manager certificate)
+    │ path-based routing (/api → api-service, /auth → auth-service)
+    ▼
+Route 53 (api.mycompany.com → ALB Alias record)
+    │
+    ▼
+User Browser ✅
+```
+
+---
+
+## Step-by-Step Interview Answer
+
+---
+
+### Step 1 — Code Ready
+
+> "Developer ne code likha, feature branch mein push kiya GitHub par. Wahan se humara CI/CD (Continuous Integration / Continuous Delivery) automatically kick ho jaata hai — GitHub webhook Jenkins ko notify karta hai."
+
+---
+
+### Step 2 — Jenkins Pipeline
+
+> "Pipeline automatically start hoti hai:
+> - Dependencies install hoti hain
+> - Unit tests run hote hain
+> - Lint aur security scan (Trivy) hota hai
+> - Agar sab pass ho toh Docker image build hoti hai
+> - Image ECR (Elastic Container Registry) par push hoti hai — tag hota hai git commit hash se taaki traceability rahe — kaunsi image kaunse commit se bani ye hamesha pata hota hai"
+
+```
+Image tag example:
+  123456789.dkr.ecr.ap-south-1.amazonaws.com/my-app:a1b2c3d4
+                                                      ↑
+                                               git commit hash (first 8 chars)
+```
+
+---
+
+### Step 3 — Kubernetes Deploy (Helm)
+
+> "Jenkins phir Helm se deployment karta hai:
+> - Pehle **Staging** namespace mein automatically deploy hota hai
+> - Staging par smoke test hota hai — basic health check
+> - Production ke liye **manual approval gate** hota hai — lead approve karta hai
+> - Approve hone ke baad Helm production namespace mein deploy karta hai
+> - `kubectl rollout status` se verify hota hai ki sab pods Running hain"
+
+```groovy
+// Jenkins mein approval gate
+stage('Approve Production') {
+    steps {
+        input message: "Deploy to Production?", ok: "Deploy!"
+    }
+}
+```
+
+---
+
+### Step 4 — Ingress + AWS ALB
+
+> "Service ka type **ClusterIP** hota hai — directly internet par expose nahi hoti.
+> Uske upar ek **Ingress resource** hota hai K8s mein.
+>
+> **AWS Load Balancer Controller (ALB Controller)** us Ingress ko read karta hai aur automatically ek **ALB (Application Load Balancer)** create karta hai AWS mein.
+> ALB traffic ko path ke hisaab se route karta hai:
+> - `/api/*`  → api-service
+> - `/auth/*` → auth-service
+> - `/pay/*`  → payment-service
+>
+> Ek hi ALB sab services handle karta hai — ek LoadBalancer per service banane ki zarurat nahi — cost bhi bachta hai."
+
+```yaml
+# Ingress resource example
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:123:certificate/xxx
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+spec:
+  ingressClassName: alb
+  rules:
+  - host: api.mycompany.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+```
+
+---
+
+### Step 5 — SSL (Secure Sockets Layer) Certificate via ACM (AWS Certificate Manager)
+
+> "HTTPS ke liye **AWS Certificate Manager (ACM)** se free SSL certificate issue hoti hai `api.mycompany.com` ke liye.
+>
+> Us certificate ka ARN (Amazon Resource Name) Ingress annotation mein add karte hain:
+> `alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:...`
+>
+> ALB port 443 par HTTPS terminate karta hai aur pods tak plain HTTP forward karta hai — pods ko SSL handle nahi karna padta. Isse **SSL Termination (Secure Sockets Layer Termination) at Load Balancer** kehte hain."
+
+```bash
+# ACM certificate request karo
+aws acm request-certificate \
+  --domain-name api.mycompany.com \
+  --validation-method DNS \
+  --region ap-south-1
+
+# DNS validation ke liye Route 53 mein CNAME record add karo
+# ACM console mein "Create records in Route 53" button hota hai — ek click mein ho jaata hai
+```
+
+---
+
+### Step 6 — Route 53 DNS (Domain Name System)
+
+> "ALB ka ek DNS name hota hai — kuch aisa:
+> `abc123.ap-south-1.elb.amazonaws.com`
+>
+> Route 53 mein humari hosted zone hoti hai `mycompany.com`.
+> Wahan ek **Alias record** banate hain:
+> `api.mycompany.com → ALB DNS name`
+>
+> **Alias record** isliye use karte hain CNAME (Canonical Name record) ki jagah kyunki:
+> - AWS Alias records root domain par bhi kaam karte hain (`mycompany.com`)
+> - CNAME root domain par nahi chalta
+> - Alias records free hain — CNAME lookup par charge hota hai
+> - AWS internally resolve karta hai — faster"
+
+```bash
+# Route 53 mein Alias record banao (AWS CLI)
+aws route53 change-resource-record-sets \
+  --hosted-zone-id Z1234567890 \
+  --change-batch '{
+    "Changes": [{
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "api.mycompany.com",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "ZP97RAFLXTNZK",
+          "DNSName": "abc123.ap-south-1.elb.amazonaws.com",
+          "EvaluateTargetHealth": true
+        }
+      }
+    }]
+  }'
+```
+
+---
+
+### Step 7 — Security via IRSA (IAM Roles for Service Accounts)
+
+> "Agar ye service AWS resources use karti hai — S3, SQS (Simple Queue Service), DynamoDB — toh hardcoded keys nahi use karte.
+>
+> **IRSA (IAM Roles for Service Accounts)** setup hota hai:
+> - Pod ko automatically temporary AWS credentials milte hain
+> - Credentials har ghante auto-rotate hoti hain
+> - Sirf wahi permissions hoti hain jo us specific service ko chahiye — least privilege"
+
+---
+
+### Step 8 — Verify karo
+
+> "Deploy ke baad ye verify karta hoon:"
+
+```bash
+# Pods running hain?
+kubectl get pods -n production
+
+# Logs mein errors?
+kubectl logs -l app=my-service -n production
+
+# Health check
+curl https://api.mycompany.com/health
+# Expected: 200 OK
+
+# ALB provisioned hua?
+kubectl get ingress -n production
+# EXTERNAL-IP column mein ALB DNS naam aana chahiye
+
+# Grafana dashboard
+# CPU, memory, request rate, error rate — sab normal?
+```
+
+---
+
+### Step 9 — Rollback Plan
+
+> "Kuch bhi galat ho toh rollback instant hai:"
+
+```bash
+# Option 1: Helm rollback
+helm rollback my-service 1 -n production
+# Previous Helm revision par wapas
+
+# Option 2: Jenkins se previous build redeploy
+# Jenkins → Job → Previous successful build → Rebuild
+
+# Option 3: kubectl
+kubectl rollout undo deployment/my-service -n production
+```
+
+> "Route 53 TTL (Time To Live) 60 seconds set rakho production mein — DNS change bhi fast propagate hota hai rollback ke time."
+
+---
+
+## One-Line Summary — Interview Close karne ke liye
+
+> *"Basically — code push se lekar browser tak ka flow hai:*
+> ***GitHub → Jenkins → ECR → Helm → K8s Pods → Ingress → ALB → Route 53 → User.***
+> *Har step automated hai except production approval jo intentionally manual hai — taaki koi accidental deploy na ho."*
+
+---
+
+## Interviewer Deep-Dive Questions — aur unke answers
+
+**Q: "ALB (Application Load Balancer) aur NLB (Network Load Balancer) mein kya difference hai? Tumne ALB kyun choose kiya?"**
+> "ALB (Application Load Balancer) Layer 7 par kaam karta hai — HTTP/HTTPS, path-based routing, host-based routing support karta hai. NLB (Network Load Balancer) Layer 4 par kaam karta hai — TCP (Transmission Control Protocol)/UDP (User Datagram Protocol), bahut fast hai lekin sirf IP+port se route karta hai, content nahi dekhta. Microservices ke liye ALB perfect hai kyunki ek ALB se multiple services route kar sakte hain path ke basis par."
+
+**Q: "CNAME (Canonical Name record) ki jagah Alias record kyun?"**
+> "CNAME root domain par nahi chalta — `mycompany.com` par CNAME nahi laga sakte, sirf subdomains par. Alias AWS-specific feature hai jo root domain par bhi kaam karta hai. Plus Alias records free hain aur faster resolve hote hain kyunki AWS internally handle karta hai."
+
+**Q: "SSL (Secure Sockets Layer) termination ALB (Application Load Balancer) par kyun, pods par kyun nahi?"**
+> "ALB par terminate karne se pods ko SSL handle nahi karna padta — simple HTTP chalaate hain. Certificate ek jagah manage hota hai. ACM auto-renew karta hai certificates. Agar har pod SSL handle kare toh certificate management complex ho jaata hai."
+
+**Q: "Zero downtime deploy kaise ensure karte ho?"**
+> "Helm ka default rolling update strategy use karta hoon. `maxUnavailable: 0` aur `maxSurge: 1` set karta hoon — matlab pehle naya pod start hota hai, healthy hone par hi purana terminate hota hai. Readiness probe ensure karta hai ki pod traffic lene ke liye ready hai tab hi Service mein add hota hai."
+
+**Q: "Agar Route 53 record galat ho jaaye toh?"**
+> "TTL kam hone ki wajah se DNS propagation fast hoti hai. Galat record fix karo → 60 seconds mein propagate. Plus health check Route 53 mein laga sakte hain — agar ALB unhealthy ho toh automatically failover ho jaata hai dusre region ya backup endpoint par."
+
+---
+
+*Ye answer interview mein confidently deliver karo — diagram board par banao aur har step explain karo.*
+*Total time: 3-4 minutes for full answer, 1 minute for summary only.*
