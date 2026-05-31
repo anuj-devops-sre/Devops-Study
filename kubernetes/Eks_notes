@@ -1,0 +1,209 @@
+# EKS Study Notes — Quick Reference
+
+---
+
+## Core Concepts (One Line Each)
+
+| Term | What it is |
+|------|-----------|
+| **EKS** | AWS-managed Kubernetes — AWS runs the control plane, you manage the apps |
+| **Node** | EC2 server where your pods actually run |
+| **Pod** | One running copy of your container/app |
+| **Deployment** | "Keep N copies of my pod alive always" |
+| **Service** | Stable internal address to reach your pods |
+| **Ingress** | Single entry point that routes traffic to many services |
+| **Helm** | Package manager for Kubernetes — like apt/brew but for K8s |
+| **IRSA** | Gives pods a secure AWS identity without hardcoded keys |
+| **Karpenter** | Auto-adds/removes EC2 nodes based on pod demand |
+| **ECR** | AWS private Docker image registry |
+| **OIDC** | The bridge that connects Kubernetes service accounts to AWS IAM |
+
+---
+
+## Must-Know Commands
+
+### Cluster
+```bash
+# Create cluster
+eksctl create cluster --name demo-test --region ap-south-1 --version 1.34 --node-type t3.medium --nodes 2 --managed
+
+# Connect kubectl to cluster
+aws eks update-kubeconfig --name demo-test --region ap-south-1
+
+# Delete cluster (always delete app first!)
+kubectl delete -f deployment.yaml
+eksctl delete cluster --name demo-test --region ap-south-1
+```
+
+### kubectl Daily Use
+```bash
+kubectl get nodes                          # are my servers up?
+kubectl get pods                           # are my apps running?
+kubectl get all                            # see everything
+kubectl logs -l app=my-app                 # read app logs
+kubectl describe pod <pod-name>            # debug a broken pod
+kubectl exec -it <pod-name> -- sh         # get inside a pod
+kubectl apply -f file.yaml                 # deploy/update
+kubectl delete -f file.yaml                # remove
+kubectl scale deployment my-app --replicas=5   # scale up/down
+kubectl rollout restart deployment my-app  # redeploy after new image
+```
+
+### ECR (Push Image)
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGISTRY=$ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com
+
+aws ecr create-repository --repository-name my-app --region ap-south-1
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $REGISTRY
+
+docker build -t my-app .
+docker tag my-app:latest $REGISTRY/my-app:latest
+docker push $REGISTRY/my-app:latest
+```
+
+### Helm
+```bash
+helm create my-chart                                   # scaffold a new chart
+helm install my-app ./my-chart                         # first deploy
+helm upgrade my-app ./my-chart --set image.tag=v2      # update
+helm upgrade --install my-app ./my-chart               # install OR update (safe default)
+helm rollback my-app 1                                 # rollback to version 1
+helm list                                              # list all releases
+helm uninstall my-app                                  # remove everything
+helm upgrade --install my-app ./my-chart -f values-prod.yaml   # prod deploy
+```
+
+---
+
+## Key YAML Patterns
+
+### Minimal Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-app          # must match template labels below
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: <ECR_URL>/my-app:latest
+        ports:
+        - containerPort: 3000
+        resources:
+          requests: { cpu: "100m", memory: "128Mi" }
+          limits:   { cpu: "250m", memory: "256Mi" }
+```
+
+### Service (Internal)
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app
+spec:
+  type: ClusterIP        # internal only — use this with Ingress
+  selector:
+    app: my-app          # matches Deployment labels
+  ports:
+  - port: 80
+    targetPort: 3000
+```
+
+### Ingress (One ALB for all services)
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb          # NOT the old kubernetes.io/ingress.class annotation
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: my-app
+            port:
+              number: 80
+```
+
+### IRSA — Pod with AWS Identity
+```yaml
+spec:
+  template:
+    spec:
+      serviceAccountName: my-app-sa    # the service account linked to an IAM role
+      containers:
+      - name: my-app
+        image: ...
+        # No AWS keys. Credentials come automatically from IRSA.
+```
+
+---
+
+## How the 4 Next Steps Fit Together
+
+```
+Problem                    →   Solution
+─────────────────────────────────────────────────────
+1 LB per service = $$      →   Ingress + ALB Controller (1 LB total)
+Nodes don't auto-scale     →   Karpenter (nodes in/out automatically)
+YAML copy-pasted everywhere →  Helm (one chart, many environments)
+Hardcoded AWS keys in pods →   IRSA (IAM role per pod, auto-rotating)
+```
+
+---
+
+## Common Mistakes & Fixes
+
+| Mistake | Fix |
+|---------|-----|
+| `ImagePullBackOff` | ECR login expired or wrong image URL — recheck `$REGISTRY` and re-login |
+| Pod stuck `Pending` | No space on nodes — check `kubectl describe pod` for resource pressure |
+| `EXTERNAL-IP` pending forever | Wait 3 min; if still pending check node IAM role has LB permissions |
+| `exec format error` | Image built for wrong CPU arch — rebuild with `--platform linux/amd64` |
+| `kubectl` not working | Run `aws eks update-kubeconfig --name demo-test --region ap-south-1` |
+| Karpenter installs but no nodes | Controller IAM role missing or IRSA not set up for controller |
+| Old `ingress.class` annotation | Use `spec.ingressClassName: alb` instead |
+| `$REGISTRY` empty in new terminal | Re-run the variable assignments from ECR step |
+
+---
+
+## Learning Order (Why)
+
+```
+1. Helm    → you use it to install IRSA, Ingress, Karpenter
+2. IRSA    → security before any pod touches AWS
+3. Ingress → save money on load balancers immediately
+4. Karpenter → node-level cost optimization last
+```
+
+---
+
+## Quick Mental Models
+
+- **Deployment** = "desired state". You say "I want 3 pods", K8s makes it happen and keeps it that way.
+- **Service** = phone directory. Pods come and go, but the Service address stays constant.
+- **Ingress** = reception desk. One public door, routes visitors to the right department inside.
+- **Helm** = recipe book. Same recipe, different ingredients per environment.
+- **IRSA** = employee badge. Each pod gets its own ID card with only the permissions it needs.
+- **Karpenter** = elastic office space. Adds desks when people arrive, removes them when empty.
+
+---
+
+*Cluster: `demo-test` · Region: `ap-south-1` · K8s: 1.34*
