@@ -1390,3 +1390,314 @@ kubectl rollout undo deployment/my-service -n production
 
 *Ye answer interview mein confidently deliver karo — diagram board par banao aur har step explain karo.*
 *Total time: 3-4 minutes for full answer, 1 minute for summary only.*
+
+---
+
+---
+
+# 🔢 PART 13 — Error Codes Complete Reference
+
+> Interview mein aksar poochha jaata hai: *"502 aur 504 mein kya difference hai?"* ya *"403 aur 401 mein kya fark hai?"*
+> Ye section sab error codes cover karta hai — HTTP, Linux, Docker, Kubernetes, AWS.
+
+---
+
+## HTTP Status Codes — HyperText Transfer Protocol Status Codes
+
+### 1xx — Informational (Request received, processing)
+
+| Code | Name | Matlab |
+|------|------|--------|
+| 100 | Continue | Server ne request ka pehla part receive kiya, aage bhejo |
+| 101 | Switching Protocols | Server protocol switch kar raha hai (HTTP se WebSocket) |
+
+---
+
+### 2xx — Success (Request successfully received and processed)
+
+| Code | Name | Matlab | Real Example |
+|------|------|--------|-------------|
+| 200 | OK | Sab theek — standard success response | GET request, page load |
+| 201 | Created | Resource successfully create hua | POST request se naya user bana |
+| 202 | Accepted | Request accept hui, processing baad mein hogi | Async job queue mein daali |
+| 204 | No Content | Success lekin response body nahi | DELETE request ke baad |
+| 206 | Partial Content | Partial data return hua | Video streaming, resume download |
+
+---
+
+### 3xx — Redirection (Further action needed)
+
+| Code | Name | Matlab | Real Example |
+|------|------|--------|-------------|
+| 301 | Moved Permanently | Resource hamesha ke liye move ho gaya | HTTP → HTTPS redirect |
+| 302 | Found (Temporary Redirect) | Temporarily dusri jagah hai | Login ke baad dashboard redirect |
+| 304 | Not Modified | Cache valid hai, naya data nahi | Browser cached page use karo |
+| 307 | Temporary Redirect | Same as 302 lekin method change nahi hoga | POST request redirect |
+| 308 | Permanent Redirect | Same as 301 lekin method change nahi hoga | API version migration |
+
+---
+
+### 4xx — Client Errors (Request mein kuch galat hai)
+
+| Code | Name | Matlab | Real Example |
+|------|------|--------|-------------|
+| 400 | Bad Request | Client ne galat/invalid data bheja | JSON format galat, required field missing |
+| 401 | Unauthorized | Authentication nahi hui — pehle login karo | Token nahi hai ya expire ho gaya |
+| 403 | Forbidden | Authenticated ho lekin permission nahi | Normal user admin page access karna |
+| 404 | Not Found | Resource exist nahi karta | Wrong URL, deleted page |
+| 405 | Method Not Allowed | HTTP method allowed nahi | GET-only endpoint par POST kiya |
+| 408 | Request Timeout | Client ne request complete karne mein zyada time liya | Slow network, client side issue |
+| 409 | Conflict | Request current state se conflict kar rahi hai | Duplicate entry, version conflict |
+| 410 | Gone | Resource permanently delete ho gaya (404 se alag — permanently gone) | Deprecated API endpoint |
+| 413 | Payload Too Large | Request body size limit se zyada | File upload size limit exceed |
+| 414 | URI Too Long | URL bahut lamba hai | GET request mein bahut zyada params |
+| 415 | Unsupported Media Type | Content-Type server support nahi karta | XML bheja lekin server sirf JSON accept karta |
+| 422 | Unprocessable Entity | Request format sahi hai lekin data invalid | Validation error — email format galat |
+| 429 | Too Many Requests | Rate limit exceed ho gayi | API rate limiting, DDoS protection |
+
+---
+
+### 5xx — Server Errors (Server ki galti hai)
+
+| Code | Name | Matlab | Real Example |
+|------|------|--------|-------------|
+| 500 | Internal Server Error | Server mein kuch toot gaya — generic error | App crash, unhandled exception |
+| 501 | Not Implemented | Server ye feature support nahi karta | Unsupported HTTP method |
+| 502 | Bad Gateway | Upstream server ne invalid response diya | Nginx → App server down, App crashed |
+| 503 | Service Unavailable | Server temporarily down — overloaded ya maintenance | High traffic, deployment ho raha hai |
+| 504 | Gateway Timeout | Upstream server ne time par respond nahi kiya | Database slow, third-party API timeout |
+| 505 | HTTP Version Not Supported | Server ye HTTP version support nahi karta | Rare — old clients |
+
+---
+
+### 401 vs 403 — Interview Favourite Question
+
+```
+401 Unauthorized → "Tumhara identity confirm nahi hai — pehle login karo"
+                   Token missing hai ya expire ho gaya
+                   Fix: Login karo, valid token bhejo
+
+403 Forbidden    → "Tumhari identity pata hai lekin permission nahi"
+                   Authenticated ho lekin access nahi
+                   Fix: Admin se permission lo, IAM role check karo
+```
+
+---
+
+### 502 vs 503 vs 504 — Interview Favourite Question
+
+```
+502 Bad Gateway      → Tumhara server (Nginx/ALB) upstream se baat kiya
+                       lekin upstream ne garbage response diya
+                       Upstream server DOWN ya CRASHED hai
+                       Fix: App server/pod restart karo
+
+503 Service          → Server khud overwhelmed hai ya maintenance mein
+Unavailable            Kubernetes mein: pod nahi hai ya readiness probe fail
+                       Fix: Pods scale karo, deployment check karo
+
+504 Gateway Timeout  → Upstream server ne respond kiya hi nahi — timeout
+                       Database slow hai, third-party API hang
+                       Fix: Database performance check, timeout values tuning
+```
+
+---
+
+## Linux Exit Codes — Process Exit Codes
+
+| Exit Code | Matlab | Common Cause |
+|-----------|--------|-------------|
+| 0 | Success | Command successfully chala |
+| 1 | General Error | Script mein error, command failed |
+| 2 | Misuse of Shell Command | Wrong arguments, syntax error |
+| 126 | Permission Denied | File executable nahi hai (`chmod +x` karo) |
+| 127 | Command Not Found | Command PATH mein nahi hai |
+| 128 | Invalid Exit Argument | `exit` ko invalid argument diya |
+| 130 | Script terminated by Ctrl+C | User ne manually stop kiya (SIGINT — Signal Interrupt) |
+| 137 | OOMKilled / SIGKILL | Out of Memory — kernel ne force kill kiya |
+| 143 | SIGTERM — graceful kill | `kill` command ya graceful shutdown |
+| 255 | Exit Status Out of Range | Exit code 255 se bahar |
+
+```bash
+# Exit code check karo
+echo $?    # last command ka exit code
+# 0 = success, kuch bhi aur = failure
+
+# Example
+ls /nonexistent
+echo $?    # 2 aayega
+
+ping google.com &
+kill $!
+echo $?    # 143 aayega (SIGTERM)
+```
+
+---
+
+## Docker Exit Codes — Container Exit Codes
+
+| Exit Code | Matlab | Fix |
+|-----------|--------|-----|
+| 0 | Container successfully exit hua | Normal — intentional exit |
+| 1 | Application error | App logs check karo: `docker logs <container>` |
+| 125 | Docker daemon error | Docker service restart karo |
+| 126 | Container command permission denied | Dockerfile mein permissions check karo |
+| 127 | Container command not found | Image mein required binary nahi — Dockerfile fix karo |
+| 137 | OOMKilled — memory limit exceed | Container memory limit badhaao |
+| 139 | Segmentation Fault (SIGSEGV — Signal Segmentation Violation) | App mein memory bug — developer ko report karo |
+| 143 | SIGTERM — graceful stop | `docker stop` se normal stop |
+
+```bash
+# Container exit code dekho
+docker inspect <container-id> --format='{{.State.ExitCode}}'
+
+# Common debug flow
+docker ps -a                    # stopped containers bhi dekho
+docker logs <container-id>      # kya error tha?
+docker inspect <container-id>   # detailed info
+```
+
+---
+
+## Kubernetes Pod Exit Codes & Status
+
+### Pod Status
+
+| Status | Matlab | Fix |
+|--------|--------|-----|
+| `Pending` | Pod schedule nahi hua kisi node par | Resources nahi / taint mismatch / PVC pending |
+| `Running` | Pod chal raha hai | Normal ✅ |
+| `Succeeded` | Pod successfully complete hua (exit 0) | Normal for Jobs |
+| `Failed` | Pod exit ho gaya non-zero code se | Logs check karo |
+| `Unknown` | Pod ka status pata nahi — node unreachable | Node check karo |
+| `CrashLoopBackOff` | Pod baar baar crash aur restart ho raha hai | `kubectl logs --previous` karo |
+| `ImagePullBackOff` | Image pull nahi ho pa rahi | ECR login / image name check karo |
+| `ErrImagePull` | Image pull mein error | Same as above — first occurrence |
+| `OOMKilled` | Out of Memory — memory limit exceed | Memory limit badhaao |
+| `Terminating` | Pod delete ho raha hai | Normal during deployment |
+| `ContainerCreating` | Container create ho raha hai | Wait karo, ya describe karo |
+| `Init:Error` | Init container fail ho gaya | Init container logs check karo |
+| `CreateContainerConfigError` | ConfigMap ya Secret missing hai | `kubectl describe pod` karo |
+
+### Pod Conditions
+
+```bash
+kubectl describe pod <pod-name>
+# Conditions section:
+# PodScheduled   True/False  → node par schedule hua?
+# Initialized    True/False  → init containers done?
+# ContainersReady True/False → sab containers ready?
+# Ready          True/False  → traffic le sakta hai?
+```
+
+---
+
+## AWS Error Codes
+
+### HTTP Errors from AWS APIs
+
+| Error Code | Matlab | Fix |
+|------------|--------|-----|
+| `AccessDenied` | IAM (Identity and Access Management) permission nahi | Policy mein action add karo |
+| `AuthFailure` | AWS credentials invalid | `aws configure` se credentials update karo |
+| `UnauthorizedOperation` | EC2 (Elastic Compute Cloud) operation allowed nahi | IAM policy check karo |
+| `ResourceNotFoundException` | Resource exist nahi karta | Name/ID check karo |
+| `ResourceAlreadyExistsException` | Resource pehle se hai | Delete karo ya different name use karo |
+| `ThrottlingException` | API rate limit exceed | Retry with exponential backoff |
+| `RequestExpired` | Request timestamp bahut purana | System clock sync karo: `timedatectl` |
+| `InvalidParameterValue` | Parameter ka value invalid | Documentation mein valid values check karo |
+| `LimitExceededException` | AWS service limit hit hua | AWS console mein limit increase request karo |
+
+### ECR (Elastic Container Registry) Errors
+
+| Error | Matlab | Fix |
+|-------|--------|-----|
+| `no basic auth credentials` | ECR login nahi ki | `aws ecr get-login-password \| docker login` |
+| `denied: Your Authorization Token has expired` | Token expire | Re-login karo (ECR token 12 ghante valid) |
+| `name unknown: The repository does not exist` | Repository nahi bani | `aws ecr create-repository` karo |
+| `toomanyrequests` | Pull rate limit (public images) | ECR private registry use karo |
+
+### EKS (Elastic Kubernetes Service) Errors
+
+| Error | Matlab | Fix |
+|-------|--------|-----|
+| `Unauthorized` kubectl | kubeconfig sahi nahi | `aws eks update-kubeconfig --name <cluster>` |
+| `nodes not found` | Node group issue | Node group status AWS console mein check karo |
+| `Error from server (ServiceUnavailable)` | API server overloaded | Thodi der wait karo, retry |
+
+---
+
+## Nginx Error Codes — Reverse Proxy Errors
+
+| Code | Matlab | Fix |
+|------|--------|-----|
+| `502 Bad Gateway` | Upstream (app server) se connection refused | App server chal raha hai? Port sahi hai? |
+| `504 Gateway Timeout` | Upstream ne time par respond nahi kiya | `proxy_read_timeout` badhaao nginx.conf mein |
+| `413 Request Entity Too Large` | Upload size limit exceed | `client_max_body_size` badhaao |
+| `499 Client Closed Request` | Client ne connection close kar diya | Normal — user ne page close kiya |
+
+```nginx
+# Common Nginx timeouts fix
+proxy_connect_timeout 60s;
+proxy_send_timeout    60s;
+proxy_read_timeout    60s;     # badhao agar app slow hai
+client_max_body_size  50m;     # file upload size
+```
+
+---
+
+## Terraform Error Codes
+
+| Error | Matlab | Fix |
+|-------|--------|-----|
+| `Error acquiring the state lock` | Koi aur apply chal raha hai | Wait karo ya `terraform force-unlock <ID>` |
+| `ResourceAlreadyExists` | Resource manually bana tha | `terraform import` karo |
+| `AccessDenied` | IAM permission nahi | IAM policy check karo |
+| `InvalidClientTokenId` | AWS credentials invalid | `aws configure` update karo |
+| `No changes. Infrastructure is up-to-date` | Kuch nahi badla | Normal ✅ |
+| `Error: Unsupported argument` | Terraform version mein arg nahi | Version upgrade karo |
+
+---
+
+## Quick Cheat Sheet — Sabse Important Codes
+
+```
+HTTP:
+  200 → OK (success)
+  201 → Created
+  204 → No Content (DELETE success)
+  301 → Permanent Redirect
+  400 → Bad Request (client ki galti — wrong data)
+  401 → Unauthorized (login nahi kiya)
+  403 → Forbidden (login kiya lekin permission nahi)
+  404 → Not Found
+  429 → Too Many Requests (rate limit)
+  500 → Internal Server Error (server crash)
+  502 → Bad Gateway (upstream down)
+  503 → Service Unavailable (server busy)
+  504 → Gateway Timeout (upstream slow)
+
+Linux Exit:
+  0   → Success
+  1   → General Error
+  127 → Command Not Found
+  137 → OOMKilled
+  143 → SIGTERM (graceful kill)
+
+Kubernetes:
+  CrashLoopBackOff    → app baar baar crash
+  ImagePullBackOff    → image pull fail
+  OOMKilled           → memory limit exceed
+  Pending             → node nahi mila
+  CreateContainerConfigError → Secret/ConfigMap missing
+
+Docker:
+  0   → Normal exit
+  1   → App error
+  137 → OOMKilled
+  143 → docker stop (graceful)
+```
+
+---
+
+*Full forms used: HTTP (HyperText Transfer Protocol), ECR (Elastic Container Registry), EKS (Elastic Kubernetes Service), IAM (Identity and Access Management), ALB (Application Load Balancer), EC2 (Elastic Compute Cloud), SIGTERM (Signal Terminate), SIGINT (Signal Interrupt), SIGSEGV (Signal Segmentation Violation), OOM (Out of Memory), URI (Uniform Resource Identifier)*
