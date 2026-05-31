@@ -1,0 +1,940 @@
+# Complete EKS Guide — Cluster, Microservice, and What to Learn Next
+
+This is one complete document. It covers:
+
+1. **Part 1** — Create an EKS cluster and deploy a microservice (step by step)
+2. **Part 2** — What breaks in production with that basic setup, and how to fix it (Helm, IRSA, Ingress, Karpenter)
+
+Each step explains *what* you are doing and *why* — so you understand it, not just copy it.
+
+---
+
+# PART 1 — Create an EKS Cluster and Deploy a Microservice
+
+---
+
+## What We Are Building
+
+```
+Your Laptop
+    │
+    │ push image
+    ▼
+ECR (AWS image storage)
+    │
+    │ pull image
+    ▼
+EKS Cluster (demo-test)
+    ├── Node 1 (EC2)
+    │     └── Pod → your microservice
+    └── Node 2 (EC2)
+          └── Pod → your microservice
+                │
+                ▼
+         LoadBalancer → Internet
+```
+
+> **Quick mental model:**
+> - **EKS** = AWS runs the Kubernetes "brain" for you
+> - **Node** = EC2 server where your app runs
+> - **Pod** = one running copy of your app
+> - **Deployment** = "keep N copies of my app alive always"
+> - **Service** = stable address so traffic reaches your pods
+
+---
+
+## Step 0 — Prerequisites
+
+- AWS account with permission to create EKS, EC2, IAM, VPC, ECR, CloudFormation
+- A terminal (Linux, macOS, or WSL on Windows)
+- ~30–40 minutes (mostly waiting for AWS)
+
+---
+
+## Step 1 — Install the Tools
+
+### macOS
+```bash
+brew install awscli eksctl kubernetes-cli
+# Docker Desktop: https://www.docker.com/products/docker-desktop
+```
+
+### Linux (Ubuntu / Debian)
+```bash
+# AWS CLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+unzip awscliv2.zip && sudo ./aws/install
+
+# eksctl
+curl --silent --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Docker
+sudo apt-get update && sudo apt-get install -y docker.io
+
+# Allow docker without sudo (required — otherwise docker commands fail)
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+### Verify
+```bash
+aws --version && eksctl version && kubectl version --client && docker --version
+```
+
+---
+
+## Step 2 — Connect AWS CLI to Your Account
+
+You need an **Access Key** and **Secret Key** from AWS Console → IAM → Users → Security credentials.
+
+```bash
+aws configure
+```
+
+```
+AWS Access Key ID     : <your key>
+AWS Secret Access Key : <your secret>
+Default region name   : ap-south-1
+Default output format : json
+```
+
+Confirm it works:
+```bash
+aws sts get-caller-identity
+# Should print your account number and user ARN
+```
+
+---
+
+## Step 3 — Create the EKS Cluster
+
+One command builds everything: VPC, IAM roles, control plane, and worker nodes.
+
+```bash
+eksctl create cluster \
+  --name demo-test \
+  --region ap-south-1 \
+  --version 1.34 \
+  --node-type t3.medium \
+  --nodes 2 \
+  --nodes-min 2 \
+  --nodes-max 4 \
+  --managed
+```
+
+**What each flag means:**
+
+| Flag | Meaning |
+|------|---------|
+| `--name demo-test` | Cluster name |
+| `--region ap-south-1` | Mumbai region |
+| `--version 1.34` | Kubernetes version |
+| `--node-type t3.medium` | EC2 size for worker nodes |
+| `--nodes 2` | Start with 2 nodes |
+| `--nodes-min/max 2/4` | ASG bounds — does NOT auto-scale without Cluster Autoscaler or Karpenter |
+| `--managed` | AWS manages node patching and updates |
+
+> ⏳ Takes 15–20 minutes. eksctl auto-updates your kubeconfig when done.
+
+```bash
+# Verify cluster is alive
+kubectl get nodes
+# Should show 2 nodes with status Ready
+```
+
+---
+
+## Step 4 — Build the Microservice
+
+```bash
+mkdir my-microservice && cd my-microservice
+```
+
+### `app.js`
+```javascript
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    message: 'Hello from my microservice on EKS!',
+    hostname: require('os').hostname()   // shows which pod answered
+  }));
+});
+
+server.listen(3000, () => console.log('Service running on port 3000'));
+```
+
+### `Dockerfile`
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY app.js .
+EXPOSE 3000
+CMD ["node", "app.js"]
+```
+
+No `npm install` needed — we only use Node's built-in modules.
+
+---
+
+## Step 5 — Push Image to ECR
+
+ECR (Elastic Container Registry) is AWS's private Docker registry. The cluster pulls images from here.
+
+```bash
+# 5a. Create the repository
+aws ecr create-repository --repository-name my-microservice --region ap-south-1
+
+# 5b. Set registry variables
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION=ap-south-1
+REGISTRY=$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+echo $REGISTRY   # save this — you need it in Step 6
+
+# 5c. Log Docker in to ECR
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+
+# 5d. Build, tag, push
+docker build -t my-microservice .
+docker tag my-microservice:latest $REGISTRY/my-microservice:latest
+docker push $REGISTRY/my-microservice:latest
+```
+
+> 💡 Mac M-series chip? Build with: `docker build --platform linux/amd64 -t my-microservice .`
+
+---
+
+## Step 6 — Write Kubernetes YAML
+
+### `deployment.yaml`
+
+First create the file:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-microservice
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-microservice
+  template:
+    metadata:
+      labels:
+        app: my-microservice
+    spec:
+      containers:
+      - name: my-microservice
+        image: REGISTRY_PLACEHOLDER/my-microservice:latest
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-microservice
+spec:
+  type: LoadBalancer
+  selector:
+    app: my-microservice
+  ports:
+  - port: 80
+    targetPort: 3000
+```
+
+Then inject the real registry address:
+
+```bash
+# Safety check — if this prints nothing, re-run Step 5b first
+echo "Registry: $REGISTRY"
+
+# Replace placeholder (works on both Linux and macOS)
+sed -i.bak "s|REGISTRY_PLACEHOLDER|$REGISTRY|g" deployment.yaml
+
+# Confirm it looks right
+grep "image:" deployment.yaml
+# Should show: image: 123456789.dkr.ecr.ap-south-1.amazonaws.com/my-microservice:latest
+```
+
+---
+
+## Step 7 — Deploy
+
+```bash
+kubectl apply -f deployment.yaml
+
+# Watch pods start (Ctrl+C to stop)
+kubectl get pods -w
+# Wait until both show Running
+```
+
+---
+
+## Step 8 — Test It
+
+```bash
+# Get the public load balancer address (takes 2-3 min to appear)
+kubectl get service my-microservice
+
+# Once EXTERNAL-IP shows a hostname (not <pending>):
+curl http://<EXTERNAL-IP>
+```
+
+Expected response:
+```json
+{"message":"Hello from my microservice on EKS!","hostname":"my-microservice-xxxx"}
+```
+
+Run curl a few times — the `hostname` changes between your two pods, proving the load balancer distributes traffic.
+
+---
+
+## Step 9 — Useful Day-to-Day Commands
+
+```bash
+kubectl get all                                        # see everything running
+kubectl logs -l app=my-microservice                   # read app logs
+kubectl scale deployment my-microservice --replicas=5 # scale up
+kubectl rollout restart deployment my-microservice    # redeploy after new image
+kubectl describe pod <pod-name>                       # debug a broken pod
+```
+
+---
+
+## Step 10 — Clean Up (Avoid Surprise Bills)
+
+```bash
+# Delete the app first — this removes the load balancer
+kubectl delete -f deployment.yaml
+
+# Delete the cluster
+eksctl delete cluster --name demo-test --region ap-south-1
+
+# Delete the image repository (optional)
+aws ecr delete-repository --repository-name my-microservice --region ap-south-1 --force
+```
+
+> ⚠️ Always delete the Service/LoadBalancer BEFORE deleting the cluster.
+> If you skip this, the load balancer stays alive in AWS and keeps billing you.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `kubectl get nodes` shows nothing | `aws eks update-kubeconfig --name demo-test --region ap-south-1` |
+| Pod stuck in `ImagePullBackOff` | Wrong image URL or ECR login expired — recheck Step 5 |
+| Pod stuck in `Pending` | Not enough node space — check `kubectl describe pod <name>` |
+| `EXTERNAL-IP` stays `<pending>` | Wait 3 min; if still pending, check node IAM role |
+| `exec format error` in logs | Wrong CPU arch — rebuild with `--platform linux/amd64` |
+| `$REGISTRY` empty after new terminal | Re-run the 3 variable lines from Step 5b |
+
+---
+
+---
+
+# PART 2 — What Breaks in Production, and How to Fix It
+
+---
+
+## The Problem with Our Basic Setup
+
+The setup from Part 1 works. But it has 4 real problems in production:
+
+```
+Problem 1: 1 LoadBalancer per service = ₹1,500/month per service
+Problem 2: Nodes run 24/7 at fixed cost even at 3 AM with zero traffic
+Problem 3: 5 services = 5 copy-pasted YAML files, impossible to maintain
+Problem 4: Pods need AWS access → developers put keys directly in YAML = security risk
+```
+
+These 4 problems have 4 solutions — in this exact learning order:
+
+```
+1. Helm          → fix Problem 3 first (you'll use Helm to install 2, 3, 4)
+2. IRSA          → fix Problem 4 (security before anything touches AWS)
+3. Ingress + ALB → fix Problem 1 (one load balancer for everything)
+4. Karpenter     → fix Problem 2 (pay only for nodes you actually need)
+```
+
+---
+
+## 1st — Helm (Fix: Stop Copy-Pasting YAML)
+
+### Why You Need It
+
+Right now if you have 5 microservices, you have 5 `deployment.yaml` files that all look 95% the same. Change one thing — add a liveness probe — and you must edit 5 files. You miss one. Production breaks.
+
+Also, everything else in this guide (IRSA setup, Ingress controller, Karpenter) is installed via Helm. Learn it first.
+
+```
+Without Helm:                         With Helm:
+  api-deployment.yaml (copy-paste)      One chart template
+  auth-deployment.yaml (copy-paste)     api/values.yaml   → name: api, port: 3001
+  pay-deployment.yaml  (copy-paste)     auth/values.yaml  → name: auth, port: 3002
+  change 1 thing = edit 3 files        pay/values.yaml   → name: pay, port: 3003
+  miss 1 = production breaks           change 1 thing = edit template once
+```
+
+### Install Helm
+
+```bash
+# macOS
+brew install helm
+
+# Linux
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Verify
+helm version
+```
+
+### Create a Chart for Your Microservice
+
+```bash
+helm create my-microservice
+```
+
+This generates:
+```
+my-microservice/
+├── Chart.yaml        ← chart name and version
+├── values.yaml       ← your config variables
+└── templates/
+    ├── deployment.yaml   ← uses {{ .Values.xxx }} variables
+    ├── service.yaml
+    └── ingress.yaml
+```
+
+Edit `values.yaml` — this is the only file that changes per service:
+
+```yaml
+replicaCount: 2
+
+image:
+  repository: 123456789.dkr.ecr.ap-south-1.amazonaws.com/my-microservice
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "250m"
+    memory: "256Mi"
+```
+
+### Deploy and Manage with Helm
+
+```bash
+helm install my-microservice ./my-microservice          # first deploy
+helm upgrade my-microservice ./my-microservice \
+  --set image.tag=v2.0.0                                # update to new version
+helm upgrade --install my-microservice ./my-microservice # install OR update (safe default)
+helm rollback my-microservice 1                         # rollback to previous version
+helm list                                               # see all deployed charts
+helm uninstall my-microservice                          # remove everything
+```
+
+### Multiple Environments (Dev / Staging / Prod)
+
+```bash
+# One chart, separate values per environment
+helm upgrade --install my-microservice ./my-microservice \
+  -f values.yaml \
+  -f values-staging.yaml \
+  --namespace staging
+
+helm upgrade --install my-microservice ./my-microservice \
+  -f values.yaml \
+  -f values-prod.yaml \
+  --namespace prod
+```
+
+Same chart. Different values. No copy-paste.
+
+---
+
+## 2nd — IRSA (Fix: No More Hardcoded AWS Keys)
+
+### Why You Need It
+
+Your microservice needs to talk to AWS — read from S3, write to DynamoDB, send SQS messages.
+
+The wrong way (very common, very dangerous):
+
+```yaml
+# ❌ NEVER DO THIS
+env:
+- name: AWS_ACCESS_KEY_ID
+  value: "AKIAIOSFODNN7EXAMPLE"
+- name: AWS_SECRET_ACCESS_KEY
+  value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+```
+
+If anyone gets your YAML or your Git repo, they have full AWS access. Keys never expire.
+
+**IRSA (IAM Roles for Service Accounts)** is the right way. Each pod gets a temporary AWS identity that auto-rotates every hour. No keys in YAML, ever.
+
+```
+Without IRSA:                    With IRSA:
+  Hardcoded keys in YAML    →     No keys anywhere in YAML
+  Keys never expire         →     Credentials auto-rotate every hour
+  One leaked YAML = full    →     Pod can only access what its
+  AWS access                       IAM policy explicitly allows
+```
+
+### Set Up IRSA
+
+**Step 1: Enable OIDC (one-time per cluster)**
+```bash
+# This links your cluster to AWS IAM
+eksctl utils associate-iam-oidc-provider \
+  --cluster demo-test \
+  --region ap-south-1 \
+  --approve
+```
+
+**Step 2: Create a policy for what your pod is allowed to do**
+```bash
+cat > pod-s3-policy.json << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::cashify-app-data",
+        "arn:aws:s3:::cashify-app-data/*"
+      ]
+    }
+  ]
+}
+EOF
+
+aws iam create-policy \
+  --policy-name my-microservice-s3-policy \
+  --policy-document file://pod-s3-policy.json
+```
+
+**Step 3: Create a service account linked to that policy**
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+eksctl create iamserviceaccount \
+  --cluster demo-test \
+  --region ap-south-1 \
+  --namespace default \
+  --name my-microservice-sa \
+  --attach-policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/my-microservice-s3-policy \
+  --approve
+```
+
+**Step 4: Tell your pod to use this service account**
+```yaml
+spec:
+  template:
+    spec:
+      serviceAccountName: my-microservice-sa   # ← add this one line
+      containers:
+      - name: my-microservice
+        image: ...
+        # No AWS keys. Credentials arrive automatically.
+```
+
+**Verify inside the pod:**
+```bash
+kubectl exec -it $(kubectl get pod -l app=my-microservice -o name | head -1) -- sh
+# Inside the pod:
+aws s3 ls s3://cashify-app-data    # works without any keys configured
+```
+
+---
+
+## 3rd — Ingress + AWS Load Balancer Controller (Fix: One LB for Everything)
+
+### Why You Need It
+
+With `type: LoadBalancer` in every Service, each microservice gets its own AWS load balancer:
+
+```
+api-service          → LoadBalancer A  (~$20/month)
+auth-service         → LoadBalancer B  (~$20/month)
+payment-service      → LoadBalancer C  (~$20/month)
+notification-service → LoadBalancer D  (~$20/month)
+                                       ─────────────
+                               Total:  ~$80/month just for LBs
+```
+
+**Ingress** puts one load balancer in front of all services and routes traffic by path:
+
+```
+After Ingress:
+  One ALB (~$20/month total)
+  ├── /api/*     → api-service
+  ├── /auth/*    → auth-service
+  ├── /payment/* → payment-service
+  └── /notify/*  → notification-service
+```
+
+Add a new service = add one path entry. No new load balancer.
+
+### Install AWS Load Balancer Controller
+
+**Step 1: Create IAM policy for the controller**
+```bash
+curl -o iam_policy.json \
+  https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.1/docs/install/iam_policy.json
+
+aws iam create-policy \
+  --policy-name AWSLoadBalancerControllerIAMPolicy \
+  --policy-document file://iam_policy.json
+```
+
+**Step 2: Create its service account (uses IRSA from step 2 above)**
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+eksctl create iamserviceaccount \
+  --cluster=demo-test \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --attach-policy-arn=arn:aws:iam::${ACCOUNT_ID}:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve \
+  --region ap-south-1
+```
+
+**Step 3: Install via Helm**
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  --namespace kube-system \
+  --set clusterName=demo-test \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller
+```
+
+**Step 4: Verify**
+```bash
+kubectl get deployment -n kube-system aws-load-balancer-controller
+# Should show READY 2/2
+```
+
+### Switch Your Services to Use Ingress
+
+Change Service type from `LoadBalancer` to `ClusterIP`:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-microservice
+spec:
+  type: ClusterIP          # ← was LoadBalancer, now internal only
+  selector:
+    app: my-microservice
+  ports:
+  - port: 80
+    targetPort: 3000
+```
+
+Create `ingress.yaml`:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb        # correct modern way (not the deprecated annotation)
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: my-microservice
+            port:
+              number: 80
+      - path: /auth
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
+```
+
+```bash
+kubectl apply -f service.yaml
+kubectl apply -f ingress.yaml
+
+# Get the single ALB address (takes 2–3 min)
+kubectl get ingress my-ingress
+```
+
+---
+
+## 4th — Karpenter (Fix: Pay Only for Nodes You Use)
+
+### Why You Need It
+
+In our basic setup, 2 nodes run 24/7 — billing even at 3 AM with zero traffic. And if traffic spikes and pods can't fit, they stay `Pending` forever. Nothing scales.
+
+**Karpenter** watches for pods that can't be scheduled. When it sees them, it launches the right EC2 node to fit them. When traffic drops, it removes the node.
+
+```
+Without Karpenter:
+  2 nodes always ON  →  fixed bill
+  Traffic spike      →  pods stuck Pending, users see errors
+
+With Karpenter:
+  Low traffic   →  1 small node
+  Normal        →  2 medium nodes
+  Spike         →  5 nodes added in ~60 seconds
+  Night         →  back to 1 node
+  You pay for exactly what you use
+```
+
+### Install Karpenter
+
+**Step 1: Set variables**
+```bash
+CLUSTER_NAME=demo-test
+AWS_REGION=ap-south-1
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+```
+
+**Step 2: Create two IAM roles (both are required)**
+
+```bash
+# Role 1: Node Role — EC2 nodes use this to join the cluster
+aws iam create-role \
+  --role-name KarpenterNodeRole-${CLUSTER_NAME} \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]
+  }'
+
+for policy in AmazonEKSWorkerNodePolicy AmazonEKS_CNI_Policy AmazonEC2ContainerRegistryReadOnly; do
+  aws iam attach-role-policy \
+    --role-name KarpenterNodeRole-${CLUSTER_NAME} \
+    --policy-arn arn:aws:iam::aws:policy/${policy}
+done
+
+aws iam create-instance-profile \
+  --instance-profile-name KarpenterNodeRole-${CLUSTER_NAME}
+aws iam add-role-to-instance-profile \
+  --instance-profile-name KarpenterNodeRole-${CLUSTER_NAME} \
+  --role-name KarpenterNodeRole-${CLUSTER_NAME}
+```
+
+```bash
+# Role 2: Controller Role — Karpenter uses this to call AWS APIs (launch/terminate EC2)
+# Without this, Karpenter runs but cannot provision any nodes.
+
+cat > karpenter-controller-policy.json << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances", "ec2:CreateLaunchTemplate", "ec2:CreateFleet",
+        "ec2:DescribeInstances", "ec2:DescribeInstanceTypes", "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups", "ec2:DescribeLaunchTemplates",
+        "ec2:DescribeImages", "ec2:DescribeSpotPriceHistory",
+        "ec2:TerminateInstances", "ec2:DeleteLaunchTemplate", "ec2:CreateTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": "arn:aws:iam::${ACCOUNT_ID}:role/KarpenterNodeRole-${CLUSTER_NAME}"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter"],
+      "Resource": "arn:aws:ssm:*:*:parameter/aws/service/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["pricing:GetProducts"],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+
+aws iam create-policy \
+  --policy-name KarpenterControllerPolicy-${CLUSTER_NAME} \
+  --policy-document file://karpenter-controller-policy.json
+
+eksctl create iamserviceaccount \
+  --cluster=${CLUSTER_NAME} \
+  --region=${AWS_REGION} \
+  --namespace=kube-system \
+  --name=karpenter \
+  --attach-policy-arn=arn:aws:iam::${ACCOUNT_ID}:policy/KarpenterControllerPolicy-${CLUSTER_NAME} \
+  --approve
+```
+
+**Step 3: Install via Helm**
+```bash
+helm registry logout public.ecr.aws || true
+
+helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter \
+  --version 1.0.0 \
+  --namespace kube-system \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=karpenter \
+  --set settings.clusterName=${CLUSTER_NAME} \
+  --set controller.resources.requests.cpu=1 \
+  --set controller.resources.requests.memory=1Gi
+```
+
+**Step 4: Create NodePool — tells Karpenter what nodes it can launch**
+
+```yaml
+# nodepool.yaml
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    metadata:
+      labels:
+        cashify.in/lifecycle: spot
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      requirements:
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values: ["spot", "on-demand"]
+      - key: kubernetes.io/arch
+        operator: In
+        values: ["amd64"]
+      - key: karpenter.k8s.aws/instance-category
+        operator: In
+        values: ["m", "c", "r"]
+      - key: karpenter.k8s.aws/instance-generation
+        operator: Gt
+        values: ["2"]
+  limits:
+    cpu: 100                               # hard cap — prevents runaway scaling
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 30s
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2023                        # correct field name (not amiSFamily)
+  role: KarpenterNodeRole-demo-test
+  subnetSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: demo-test
+  securityGroupSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: demo-test
+```
+
+```bash
+kubectl apply -f nodepool.yaml
+```
+
+---
+
+## How All 4 Work Together
+
+Once everything is set up, your production architecture looks like this:
+
+```
+Internet
+   │
+   ▼
+┌──────────────────────────────────┐
+│  Single AWS ALB                   │  ← Ingress + ALB Controller
+│  (one load balancer for all)      │    saves money vs 1 LB per service
+└──────────────┬────────────────────┘
+               │ routes by /path
+    ┌──────────┼────────────┐
+    ▼          ▼            ▼
+ api-svc    auth-svc    payment-svc
+    │          │            │
+    ▼          ▼            ▼
+  Pods       Pods         Pods      ← deployed and managed via Helm charts
+    │                               ← IRSA gives each pod its own IAM identity
+    │                                  no hardcoded keys anywhere
+    ▼
+  Nodes                             ← Karpenter auto-adds/removes nodes
+  (scale in/out automatically)         you pay only for what you use
+```
+
+---
+
+## Recommended Learning Order and Why
+
+| Order | Topic | Why this order |
+|-------|-------|----------------|
+| **1st** | Helm | You use Helm to install IRSA tooling, the ALB Controller, and Karpenter. Learn this first or you'll struggle with everything else. |
+| **2nd** | IRSA | Security before any service touches AWS. Establish the right pattern early — it's much harder to fix later. |
+| **3rd** | Ingress + ALB Controller | Immediate cost saving. Visible, practical impact as soon as you have more than one service. |
+| **4th** | Karpenter | Node-level optimization. Your app is already working well — now make the infrastructure smarter and cheaper. |
+
+---
+
+## Full Troubleshooting Reference
+
+| Problem | Likely Cause | Fix |
+|---------|-------------|-----|
+| `kubectl get nodes` empty | kubeconfig not set | `aws eks update-kubeconfig --name demo-test --region ap-south-1` |
+| Pod `ImagePullBackOff` | Wrong image URL or ECR login expired | Re-run ECR login in Step 5, recheck `$REGISTRY` |
+| Pod `Pending` | No node space | `kubectl describe pod <name>` — look for resource pressure |
+| `EXTERNAL-IP` pending | LB not created | Wait 3 min; check node IAM role has LB permissions |
+| `exec format error` | Wrong CPU arch | Rebuild: `docker build --platform linux/amd64` |
+| Karpenter not launching nodes | Controller IAM role missing | Verify `KarpenterControllerPolicy` exists and IRSA is set up for controller |
+| Ingress not creating ALB | ALB controller not running | `kubectl get deployment -n kube-system aws-load-balancer-controller` |
+| IRSA not working | OIDC provider not enabled | `eksctl utils associate-iam-oidc-provider --cluster demo-test --approve` |
+| Helm install fails | Release already exists | Use `helm upgrade --install` instead of `helm install` |
+
+---
+
+*Cluster: `demo-test` · Region: `ap-south-1` · Kubernetes: 1.34*
+*This document covers: cluster setup → microservice deployment → Helm → IRSA → Ingress → Karpenter*
