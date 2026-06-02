@@ -2068,6 +2068,18 @@ R — Number se boldo result — time saved, cost reduced, downtime avoided
 ✅ Better: "Maine specifically X kiya, jo Y result diya"
 
 Interview mein "I" use karo, "we" nahi — tumhara contribution clear hona chahiye.
+
+## Ec2 Type and its requirments:
+
+Konsa choose kare — decision tree
+RAM zyada chahiye CPU se?         → R family
+CPU zyada chahiye RAM se?         → C family
+Balanced?                          → M family
+Bursty workload?                   → T family
+Fast local disk?                   → I family (NVMe) ya `d` suffix
+GPU chahiye?                       → G / P family
+Sasta chahiye + ARM compatible?    → Graviton variants (g suffix)
+Pata nahi?                         → m6i.large se shuru kar, monitor kar, adjust kar
 ```
 
 ---
